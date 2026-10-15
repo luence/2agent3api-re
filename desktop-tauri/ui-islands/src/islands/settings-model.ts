@@ -55,6 +55,20 @@ export type ModelsDevRefreshResult = {
   refreshedAt?: number
 }
 
+export type AutoContinueData = {
+  autoContinue?: boolean
+  autoContinueMaxRounds?: number
+}
+
+export type AutoContinuePatch = {
+  autoContinue?: boolean
+  autoContinueMaxRounds?: number
+}
+
+export type KeepaliveStripData = {
+  stripNewlineKeepalive?: boolean
+}
+
 /* ─── 桥与共享全局 ─────────────────────────── */
 
 /** 启动与托盘设置（壳命令 get_app_settings / save_app_settings） */
@@ -166,6 +180,10 @@ export type SettingsBridge = {
   saveDebug(enabled: boolean): Promise<unknown>
   getSanitize(): Promise<unknown>
   saveSanitize(enabled: boolean): Promise<unknown>
+  getAutoContinue?(): Promise<AutoContinueData | null | undefined>
+  saveAutoContinue?(patch: AutoContinuePatch): Promise<AutoContinueData | null | undefined>
+  getKeepaliveStrip?(): Promise<KeepaliveStripData | null | undefined>
+  saveKeepaliveStrip?(enabled: boolean): Promise<KeepaliveStripData | null | undefined>
   getClineHeaders(): Promise<unknown>
   saveClineHeaders(overrides: Record<string, string>): Promise<unknown>
   getCors(): Promise<unknown>
@@ -530,6 +548,17 @@ export const QUEUE_FIELDS: NumberField[] = [
   },
 ]
 
+/** 长度截断自动续写上限轮数字段：范围 1~8 轮，默认 3 轮 */
+export const AUTO_CONTINUE_ROUNDS_FIELD: NumberField = {
+  key: 'autoContinueMaxRounds',
+  id: 'settings-auto-continue-max-rounds',
+  label: '自动续写上限轮数',
+  unit: '轮',
+  min: 1,
+  max: 8,
+  hint: '当遇到截断时，网关在后台最多连续发起几轮「请继续输出」追问（范围 1–8 轮，默认 3 轮）。',
+}
+
 /** 「指定错误码直接换号」：键名、状态码范围与名单上限与后端 retry_api.rs 逐字同源 */
 export const NO_RETRY_CODES_KEY = 'noRetryStatusCodes'
 export const RETRY_CODE_MIN = 100
@@ -648,6 +677,8 @@ export const TIPS = {
   clineHeaders: 'Cline 上游按请求头判定「调用方是不是 Cline 自家产品」：X-CLIENT-TYPE: cline-sdk 是硬门槛（缺了它免费池模型一律 403），版本号与平台标识让请求更贴近官方客户端的形态。这里列出的是网关默认会发的头：改某一行的值 = 覆盖默认值（也可以新增默认清单之外的自定义头）；把值清空保存 = 这个头不发送；在界面删掉被改过的行 = 回落默认值。改完点「保存」，下一个 Cline 请求立即生效。不懂某一行的含义就不要动它 —— 伪装头的价值在「与官方客户端逐字一致」。',
   cors: '网关面（/v1/*）默认不应答浏览器跨源请求：页面直连会被预检拦下，只报「无法连接 API」。注意来源是 * —— 未配「网关 Key」时任何网页都能借本机网关打上游，故默认关闭；只给自己用的话，让页面与网关同源（本地反代 /v1）更稳妥。面板接口（/api/*）不受影响。',
   prompt: '客户端（Claude Code / Codex 等 CLI）会在 system 提示词里注入几十句固定模板，上游按逐字匹配审核，命中就整单拦截（HTTP 400）。指纹脱敏能改写实测命中过的那几句，但换一个客户端版本就可能冒出新的。这里可以把 system 整段换成网关自己那份：①「透传」= 不动客户端 system（默认，行为与之前完全一致）；②「替换」= 删掉客户端所有 system / developer 消息，换成网关的提示词（客户端项目规范随之消失）；③「追加」= 在开头连续 system 块之后插入一条网关提示词，既有消息逐字不动（客户端规范与网关提示词并用）。那份提示词有两个来源：提示词文件（留空用内置默认），或直接在界面上编辑正文 —— 编辑过就以那份正文为准（优先于文件），清空则回到文件 / 内置默认。另外，透传 / 追加模式下撞了内容拦截（多半是指纹误报）时，网关会自动换一段最小中性提示词重试一次，并把「降级期」开到次日 00:00 —— 期间所有请求直接带中性提示词出门，不再先撞一次 400；这里能看见并提前解除它。上面几项是**默认值**：想给某个提供商单独配，用下面的「按提供商」加一行（带「网关自带」的家默认就列在那里）—— 不同的上游对这些内容的接受程度不一样。',
+  autoContinue: '当上游模型因为最大输出 Token 限制（如 finish_reason 为 length）截断、或因思考过程耗尽预算导致正文腰斩时，网关在后台自动将已输出部分加入上下文追问「请继续输出」，并在同一流式响应中无缝拼接下发，客户端直接收到完整答案。',
+  keepaliveStrip: 'WorkBuddy 与 AutoClaw 等特定平台在上游流式传输正文分片之间会频繁插入只含单个换行 \\n 的保活分片，导致客户端渲染 Markdown 时一行一个词段落崩溃。开启后在下发前过滤这类伪心跳分片。',
   debug: '开启后，网关会把每次转发**发给上游的请求**（请求头 + 请求体）与**上游返回的响应**（状态码 + 响应头 + 响应体）完整保存到本地，供请求日志页的「详情」查看。请求头里的 Authorization、Cookie、API Key 等凭据字段一律替换成 [redacted]，不会明文落盘；请求体与响应体按原样保存（可能包含你的对话内容）。报文只保留最近 500 条，超出后丢弃最旧的。这是排障用的临时开关，不需要时建议关闭。',
   io: '导出会把全部账号与自定义提供商定义写入一个 JSON 文件，可以拷到另一台机器上导入后继续使用。导入采用合并策略：同提供商下按业务身份（UID / userId / apiKey 等）去重 —— 已存在的账号只更新凭证，保留本机原有的优先级顺序；新账号追加到转发顺序末尾，不会抢占当前正在使用的账号；自定义提供商定义按 id 合并，本机缺失时自动补建。',
   retention: '三类数据各自独立计时，超出保留天数的部分会被删除：事件日志是登录、账号切换、429 切换这类系统事件；请求日志是网关每次转发到上游的逐条记录；按天聚合供报表页的热力图与按天趋势使用。把某一档改小（例如 30 天改成 7 天）保存后会立即删除超出的历史数据，此操作不可恢复；改大或保持不变不会删除任何数据。三项的可填范围均为 1–3650 天。',
@@ -663,6 +694,8 @@ export const NOTES = {
   sanitize: '默认开启。命中明细会记进请求日志的「敏」标签（悬停可看命中了哪几条规则）。本项只改发给上游的副本，客户端看到的响应内容不变。',
   clineHeaders: '值与默认值相同的行不占覆盖（存的是「改过的键」，不是全量配置）；值留空保存表示这个头不发送，删除改过的行表示回落默认值。改完立即生效，不用重启。',
   cors: '默认关闭。改动立即生效，不用重启；关闭期间的跨源请求会被预检拦下。',
+  autoContinue: '当输出预算用尽（finish_reason 为 length 等）时，网关自动在后台发起追问补全，将剩余回答平滑拼接在同一条流式响应中下发。',
+  keepaliveStrip: '过滤 WorkBuddy、AutoClaw 等特定平台在正文分片之间插入的仅含单个换行 \\n 的保活分片，彻底修复客户端 Markdown 渲染时一行一个词的排版错乱。',
   debug: '开启后新发生的请求才会被记录（已经过去的请求补不回来）。报文统一存放在本地数据库里，只保留最近 500 条（超出后丢弃最旧的），条数见左侧「数据 → 数据存储」的「调试报文」。',
   promptMode: '替换 = 客户端 system / developer 消息全部删掉，换成网关的提示词；追加 = 保留客户端内容，只在开头 system 块之后多插一条。两者都只改发给上游的副本，客户端看到的响应不变。',
   promptFile: 'UTF-8 文本文件路径，留空用内置默认提示词（通用编码助手提示词，不含任何会被上游拦截的模板句）。只在「替换 / 追加」模式下生效，透传模式不读它。',
@@ -695,6 +728,12 @@ export const STATES = {
   sanitizeUnavailable: '未能读取指纹脱敏设置，请稍后重试',
   sanitizeOn: '正在剥离出站请求里的审核指纹：表头键值整段删除，模板句最小改写。',
   sanitizeOff: '未开启，客户端 system 模板会原样发往上游，可能被内容审核误拦（400）。',
+  autoContinueUnavailable: '未能读取自动续写设置，请稍后重试',
+  autoContinueOn: '已开启自动续写：当回答被截断时，网关将在后台最多自动续写并拼接输出。',
+  autoContinueOff: '未开启：遇到长度截断时按模型原始断点直接结束。',
+  keepaliveStripUnavailable: '未能读取保活分片过滤设置，请稍后重试',
+  keepaliveStripOn: '已开启伪心跳过滤：下发流式响应前自动丢弃异常的纯换行保活分片。',
+  keepaliveStripOff: '未开启：流式响应分片逐字节透传。',
   corsUnavailable: '未能读取网关跨域访问设置，请稍后重试',
   corsOn: '正在应答跨源请求：浏览器跨域请求可直连 /v1/*。',
   corsOff: '未开启，浏览器跨域无法直连网关。',

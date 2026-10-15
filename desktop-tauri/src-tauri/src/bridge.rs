@@ -637,6 +637,15 @@ const BRIDGE_JS: &str = r#"
     saveSanitize: enabled =>
       call('PUT', '/api/sanitize', { sanitizeBlacklistFingerprints: enabled === true }),
 
+    // ── 长度截断自动续写 ──
+    getAutoContinue: () => call('GET', '/api/auto-continue'),
+    saveAutoContinue: payload => call('PUT', '/api/auto-continue', payload || {}),
+
+    // ── 丢弃保活换行心跳分片 ──
+    getKeepaliveStrip: () => call('GET', '/api/keepalive-strip'),
+    saveKeepaliveStrip: enabled =>
+      call('PUT', '/api/keepalive-strip', { stripNewlineKeepalive: enabled === true }),
+
     // ── Cline 伪装头 ──
     // 与 getSanitize / saveSanitize 同形：GET 读（overrides + effective），
     // PUT 整体替换覆盖表（空值 = 不发该头，删行 = 回落默认值）。

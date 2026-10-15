@@ -32,6 +32,7 @@
 
 import * as React from 'react'
 import {
+  AUTO_CONTINUE_ROUNDS_FIELD,
   CATEGORIES,
   CAPTCHA_POOL_FIELDS,
   NO_RETRY_CODES_KEY,
@@ -54,8 +55,11 @@ import {
   shared,
   toast,
   type AppSettings,
+  type AutoContinueData,
+  type AutoContinuePatch,
   type ClineHeadersData,
   type GatewayBlocks,
+  type KeepaliveStripData,
   type ModelsDevState,
   type NumberField,
   type PromptPatch,
@@ -83,6 +87,9 @@ export type BusyScope =
   | 'routing'
   | 'debug'
   | 'sanitize'
+  | 'autoContinue'
+  | 'autoContinueRounds'
+  | 'keepaliveStrip'
   | 'clineHeaders'
   | 'cors'
   | 'prompt'
@@ -249,6 +256,17 @@ export type StorageState = {
 /** 导入失败明细（只列前 3 条，more 表示还有更多） */
 export type IoFailure = { failed: number; detail: string; more: boolean } | null
 
+export type AutoContinueState = {
+  status: LoadStatus
+  enabled: boolean
+  maxRounds: number
+}
+
+export type KeepaliveStripState = {
+  status: LoadStatus
+  enabled: boolean
+}
+
 export type SettingsSnapshot = {
   /** 当前分类（左侧导航与右侧面板的显隐都由它派生） */
   category: string
@@ -268,6 +286,8 @@ export type SettingsSnapshot = {
   routing: RoutingState
   debug: DebugState
   sanitize: SanitizeState
+  autoContinue: AutoContinueState
+  keepaliveStrip: KeepaliveStripState
   clineHeaders: ClineHeadersState
   cors: CorsState
   prompt: PromptState
@@ -348,6 +368,8 @@ const INITIAL: SettingsSnapshot = {
   routing: { status: 'loading', strategy: 'order', sticky: 'auto', failoverBackoff: true, sink: true, breakerEnabled: false },
   debug: { status: 'loading', on: false, count: null, limit: null },
   sanitize: { status: 'loading', on: false },
+  autoContinue: { status: 'loading', enabled: false, maxRounds: 3 },
+  keepaliveStrip: { status: 'loading', enabled: false },
   clineHeaders: { status: 'loading', defaults: {}, overrides: {}, effective: {} },
   cors: { status: 'loading', on: false },
   prompt: {
@@ -1407,6 +1429,123 @@ export async function saveSanitize(next: boolean): Promise<void> {
   }
 }
 
+/* ─── 长度截断自动续写 ─── */
+
+export function renderAutoContinue(data?: unknown): void {
+  if (data === undefined) return
+  if (!data || typeof data !== 'object') {
+    publish({ autoContinue: { status: 'unavailable', enabled: false, maxRounds: 3 } })
+    return
+  }
+  const record = data as Record<string, unknown>
+  const enabled = record.autoContinue === true
+  const maxRounds =
+    typeof record.autoContinueMaxRounds === 'number' && Number.isInteger(record.autoContinueMaxRounds)
+      ? Math.max(1, Math.min(8, record.autoContinueMaxRounds))
+      : 3
+  publish({ autoContinue: { status: 'ready', enabled, maxRounds } })
+}
+
+export async function loadAutoContinue(): Promise<void> {
+  try {
+    renderAutoContinue(await shared().workbuddyDesktop?.getAutoContinue?.())
+  } catch (error) {
+    console.warn('读取自动续写设置失败:', errorMessage(error))
+    renderAutoContinue(null)
+  }
+}
+
+export async function refreshAutoContinue(): Promise<void> {
+  await loadAutoContinue()
+  toast(t('自动续写设置已刷新'))
+}
+
+export async function saveAutoContinueToggle(next: boolean): Promise<void> {
+  if (busyScope) { repaint(); return }
+  beginBusy('autoContinue')
+  publish({ autoContinue: { ...snapshot.autoContinue, enabled: next } })
+  try {
+    const saved = await shared().workbuddyDesktop?.saveAutoContinue?.({ autoContinue: next })
+    renderAutoContinue(saved)
+    toast(next ? t('✅ 长度截断自动续写已开启') : t('已关闭自动续写'))
+  } catch (error) {
+    toast(t('保存失败：{message}', { message: errorMessage(error) }), 'err')
+    await loadAutoContinue()
+  } finally {
+    endBusy()
+  }
+}
+
+export async function saveAutoContinueMaxRounds(raw: string): Promise<void> {
+  if (busyScope) return
+  const parsed = parseInteger(
+    raw,
+    AUTO_CONTINUE_ROUNDS_FIELD.min,
+    AUTO_CONTINUE_ROUNDS_FIELD.max,
+    AUTO_CONTINUE_ROUNDS_FIELD.label,
+  )
+  if (!parsed.ok) {
+    toast(parsed.message, 'err')
+    return
+  }
+  if (snapshot.autoContinue.maxRounds === parsed.value) return
+
+  beginBusy('autoContinueRounds')
+  publish({ autoContinue: { ...snapshot.autoContinue, maxRounds: parsed.value } })
+  try {
+    const saved = await shared().workbuddyDesktop?.saveAutoContinue?.({ autoContinueMaxRounds: parsed.value })
+    renderAutoContinue(saved)
+    toast(t('✅ 已保存续写上限：{rounds} 轮', { rounds: String(parsed.value) }))
+  } catch (error) {
+    toast(t('保存失败：{message}', { message: errorMessage(error) }), 'err')
+    await loadAutoContinue()
+  } finally {
+    endBusy()
+  }
+}
+
+/* ─── 丢弃保活换行心跳分片 ─── */
+
+export function renderKeepaliveStrip(data?: unknown): void {
+  if (data === undefined) return
+  if (!data || typeof data !== 'object') {
+    publish({ keepaliveStrip: { status: 'unavailable', enabled: false } })
+    return
+  }
+  const record = data as Record<string, unknown>
+  publish({ keepaliveStrip: { status: 'ready', enabled: record.stripNewlineKeepalive === true } })
+}
+
+export async function loadKeepaliveStrip(): Promise<void> {
+  try {
+    renderKeepaliveStrip(await shared().workbuddyDesktop?.getKeepaliveStrip?.())
+  } catch (error) {
+    console.warn('读取保活分片过滤设置失败:', errorMessage(error))
+    renderKeepaliveStrip(null)
+  }
+}
+
+export async function refreshKeepaliveStrip(): Promise<void> {
+  await loadKeepaliveStrip()
+  toast(t('保活分片过滤设置已刷新'))
+}
+
+export async function saveKeepaliveStripToggle(next: boolean): Promise<void> {
+  if (busyScope) { repaint(); return }
+  beginBusy('keepaliveStrip')
+  publish({ keepaliveStrip: { status: 'ready', enabled: next } })
+  try {
+    const saved = await shared().workbuddyDesktop?.saveKeepaliveStrip?.(next)
+    renderKeepaliveStrip(saved)
+    toast(next ? t('✅ 已开启保活换行分片过滤') : t('已关闭保活分片过滤'))
+  } catch (error) {
+    toast(t('保存失败：{message}', { message: errorMessage(error) }), 'err')
+    await loadKeepaliveStrip()
+  } finally {
+    endBusy()
+  }
+}
+
 /* ─── Cline 伪装头（转发头的逐键覆盖）── */
 
 /** 非字符串值一律丢弃（后端只会给字符串，这里是给「形状不对的响应」兜底） */
@@ -2144,6 +2283,8 @@ export async function load(): Promise<void> {
     loadRouting(),
     loadDebug(),
     loadSanitize(),
+    loadAutoContinue(),
+    loadKeepaliveStrip(),
     loadClineHeaders(),
     loadCors(),
     loadPrompt(),

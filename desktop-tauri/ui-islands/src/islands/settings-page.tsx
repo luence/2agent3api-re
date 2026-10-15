@@ -21,6 +21,7 @@ import {
   Switch,
 } from '@ui'
 import {
+  AUTO_CONTINUE_ROUNDS_FIELD,
   CATEGORIES,
   NOTES,
   PROMPT_MODES,
@@ -59,9 +60,11 @@ import {
   importProviderPromptFile,
   load,
   panelLogout,
+  refreshAutoContinue,
   refreshDebug,
   refreshClineHeaders,
   refreshCors,
+  refreshKeepaliveStrip,
   refreshPrompt,
   refreshQueue,
   refreshRetention,
@@ -71,8 +74,10 @@ import {
   refreshTimeouts,
   removeProviderPrompt,
   removeRetryCode,
+  renderAutoContinue,
   renderDebug,
   renderCors,
+  renderKeepaliveStrip,
   renderPrompt,
   renderRetention,
   renderRetry,
@@ -82,10 +87,13 @@ import {
   resolveLanConfirm,
   resolveRetentionConfirm,
   restoreCategory,
+  saveAutoContinueMaxRounds,
+  saveAutoContinueToggle,
   saveCaptcha,
   saveClineHeaders,
   saveCors,
   saveDebug,
+  saveKeepaliveStripToggle,
   savePromptFile,
   savePromptMode,
   saveProviderGatewayPrompt,
@@ -103,8 +111,10 @@ import {
   toggleLan,
   toggleLanPanel,
   useSettings,
+  type AutoContinueState,
   type ClineHeadersState,
   type DebugState,
+  type KeepaliveStripState,
   type LanConfirm,
   type LanRegister,
   type LoadStatus,
@@ -1202,6 +1212,177 @@ function RetryPane({ snap }: { snap: SettingsSnapshot }) {
   )
 }
 
+/* ─── 长度截断自动续写与丢弃保活换行心跳分片 ─── */
+
+function autoContinueBadge(state: AutoContinueState): React.ReactNode {
+  if (state.status === 'ready') {
+    return state.enabled
+      ? <StatusBadge tone='ok'>已开启（{state.maxRounds} 轮）</StatusBadge>
+      : <StatusBadge tone='idle'>已关闭</StatusBadge>
+  }
+  if (state.status === 'unavailable') return <StatusBadge tone='bad'>不可用</StatusBadge>
+  return <StatusBadge tone='idle'>检测中…</StatusBadge>
+}
+
+function autoContinueStateText(state: AutoContinueState): string {
+  if (state.status === 'loading') return STATES.appLoading
+  if (state.status === 'unavailable') return STATES.autoContinueUnavailable
+  return state.enabled
+    ? `已开启自动续写：遇到输出长度截断（finish_reason 为 length 等）时，网关在后台最多连续发起 ${state.maxRounds} 轮追问补全，并在同一条流式响应中无缝拼接输出。`
+    : STATES.autoContinueOff
+}
+
+function AutoContinuePanel({ snap }: { snap: SettingsSnapshot }) {
+  const ready = snap.autoContinue.status === 'ready'
+  const busy = snap.busy === 'autoContinue' || snap.busy === 'autoContinueRounds'
+
+  return (
+    <section className='panel'>
+      <PanelHead
+        title='长度截断自动续写'
+        tip={TIPS.autoContinue}
+        badge={autoContinueBadge(snap.autoContinue)}
+        actions={<RefreshButton id='btn-auto-continue-refresh' onClick={() => void refreshAutoContinue()} />}
+      />
+      <div className='panel-body'>
+        <div className='retention-list'>
+          <div className='settings-switches'>
+            <SwitchRow
+              id='settings-auto-continue'
+              label='开启长度截断自动续写（输出达到上限被截断时，后台自动追问续写）'
+              checked={snap.autoContinue.enabled}
+              disabled={!ready || busy}
+              onCheckedChange={next => void saveAutoContinueToggle(next)}
+            />
+          </div>
+
+          <NumberRow
+            field={AUTO_CONTINUE_ROUNDS_FIELD}
+            value={ready ? snap.autoContinue.maxRounds : null}
+            disabled={!ready || busy || !snap.autoContinue.enabled}
+            onCommit={raw => saveAutoContinueMaxRounds(raw)}
+          />
+        </div>
+
+        <div className='settings-state'>{autoContinueStateText(snap.autoContinue)}</div>
+
+        {/* 优缺点分析与权衡卡片 */}
+        <div className='mt-3.5 flex flex-col gap-2.5 rounded-lg border border-border/80 bg-surface-inset p-3.5 text-xs text-text-2 leading-relaxed'>
+          <div className='flex items-center gap-1.5 font-semibold text-text'>
+            <span>💡 功能特性与优缺点权衡</span>
+          </div>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-3 mt-1'>
+            <div className='rounded-md border border-emerald-500/25 bg-emerald-500/5 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10'>
+              <div className='font-semibold text-emerald-600 dark:text-emerald-400 mb-1.5 flex items-center gap-1'>
+                <span>✅ 优点</span>
+              </div>
+              <ul className='list-disc pl-4 space-y-1 text-text-2'>
+                <li><b>客户端免手动追问</b>：生成超长代码、大文件或完整文档时，无需在聊天框手动回复「继续」。</li>
+                <li><b>同流平滑无感拼接</b>：多轮续写在网关内部同流完成，下游（Cursor / Claude Code / VSCode 插件等）直接收到完整无断点的内容。</li>
+                <li><b>防死循环机制</b>：内置内容相似度判定与硬上限轮数约束，一旦检测到模型原地复读会自动熔断退出。</li>
+              </ul>
+            </div>
+            <div className='rounded-md border border-amber-500/25 bg-amber-500/5 p-3 dark:border-amber-500/30 dark:bg-amber-500/10'>
+              <div className='font-semibold text-amber-600 dark:text-amber-400 mb-1.5 flex items-center gap-1'>
+                <span>⚠️ 缺点与代价</span>
+              </div>
+              <ul className='list-disc pl-4 space-y-1 text-text-2'>
+                <li><b>累积消耗更多 Token 与费用</b>：续写的每一轮都需携带前序所有历史输出重新请求上游，Token 消耗按轮次累加。</li>
+                <li><b>极端偶发断点瑕疵</b>：若上游截断点恰好断在多字节字符编码中间，极罕见情况下拼接处可能存在微小瑕疵。</li>
+                <li><b>单次请求耗时拉长</b>：后台多次往返会导致整条长流的总体耗时增加。</li>
+              </ul>
+            </div>
+          </div>
+          <div className='mt-1 text-text-3'>
+            <b>📌 建议场景</b>：常用于大型代码重构、完整项目文件生成时建议开启（推荐保持 2~3 轮）；日常常规短对话建议关闭以节省 Token 额度。
+          </div>
+        </div>
+
+        <div className='hint retention-note'>{NOTES.autoContinue}</div>
+      </div>
+    </section>
+  )
+}
+
+function keepaliveStripBadge(state: KeepaliveStripState): React.ReactNode {
+  if (state.status === 'ready') {
+    return state.enabled
+      ? <StatusBadge tone='ok'>已开启</StatusBadge>
+      : <StatusBadge tone='idle'>已关闭</StatusBadge>
+  }
+  if (state.status === 'unavailable') return <StatusBadge tone='bad'>不可用</StatusBadge>
+  return <StatusBadge tone='idle'>检测中…</StatusBadge>
+}
+
+function keepaliveStripStateText(state: KeepaliveStripState): string {
+  if (state.status === 'loading') return STATES.appLoading
+  if (state.status === 'unavailable') return STATES.keepaliveStripUnavailable
+  return state.enabled
+    ? STATES.keepaliveStripOn
+    : STATES.keepaliveStripOff
+}
+
+function KeepaliveStripPanel({ snap }: { snap: SettingsSnapshot }) {
+  const ready = snap.keepaliveStrip.status === 'ready'
+  const busy = snap.busy === 'keepaliveStrip'
+
+  return (
+    <section className='panel'>
+      <PanelHead
+        title='丢弃保活换行心跳分片'
+        tip={TIPS.keepaliveStrip}
+        badge={keepaliveStripBadge(snap.keepaliveStrip)}
+        actions={<RefreshButton id='btn-keepalive-strip-refresh' onClick={() => void refreshKeepaliveStrip()} />}
+      />
+      <div className='panel-body'>
+        <div className='settings-switches'>
+          <SwitchRow
+            id='settings-keepalive-strip'
+            label='过滤上游保活伪换行分片（解决流式 Markdown 排版崩塌）'
+            checked={snap.keepaliveStrip.enabled}
+            disabled={!ready || busy}
+            onCheckedChange={next => void saveKeepaliveStripToggle(next)}
+          />
+        </div>
+
+        <div className='settings-state'>{keepaliveStripStateText(snap.keepaliveStrip)}</div>
+
+        {/* 优缺点分析与权衡卡片 */}
+        <div className='mt-3.5 flex flex-col gap-2.5 rounded-lg border border-border/80 bg-surface-inset p-3.5 text-xs text-text-2 leading-relaxed'>
+          <div className='flex items-center gap-1.5 font-semibold text-text'>
+            <span>💡 功能特性与优缺点权衡</span>
+          </div>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-3 mt-1'>
+            <div className='rounded-md border border-emerald-500/25 bg-emerald-500/5 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10'>
+              <div className='font-semibold text-emerald-600 dark:text-emerald-400 mb-1.5 flex items-center gap-1'>
+                <span>✅ 优点</span>
+              </div>
+              <ul className='list-disc pl-4 space-y-1 text-text-2'>
+                <li><b>彻底根治排版崩溃</b>：WorkBuddy / AutoClaw 上游在流式分片间偶发插入纯换行 \n 伪心跳，会导致客户端渲染 Markdown 时出现「一行一个词」、「满屏乱跳空行」的严重崩塌。开启此项后智能丢弃，恢复正常段落。</li>
+                <li><b>仅限受影响渠道</b>：只对实测确认存在该缺陷的渠道（如 WorkBuddy、AutoClaw）生效，对标准服务商零副作用。</li>
+              </ul>
+            </div>
+            <div className='rounded-md border border-amber-500/25 bg-amber-500/5 p-3 dark:border-amber-500/30 dark:bg-amber-500/10'>
+              <div className='font-semibold text-amber-600 dark:text-amber-400 mb-1.5 flex items-center gap-1'>
+                <span>⚠️ 缺点与代价</span>
+              </div>
+              <ul className='list-disc pl-4 space-y-1 text-text-2'>
+                <li><b>极罕见吞掉真实空行</b>：在极少数极端场景下，若模型正文碰巧产生单独成帧的独立换行，该换行可能会被一并过滤。</li>
+                <li><b>默认逐字节透传</b>：网关遵循默认零改动原则，出厂默认关闭，由用户按需启用。</li>
+              </ul>
+            </div>
+          </div>
+          <div className='mt-1 text-text-3'>
+            <b>📌 建议场景</b>：使用 WorkBuddy 或 AutoClaw 遇到打字机流式输出整屏被切碎、一行一个词排版紊乱时强烈建议开启；其他提供商或排版正常时保持关闭即可。
+          </div>
+        </div>
+
+        <div className='hint retention-note'>{NOTES.keepaliveStrip}</div>
+      </div>
+    </section>
+  )
+}
+
 /* ─── 网关分类 ─────────────────────────────── */
 
 function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
@@ -1262,6 +1443,10 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
           <div className='hint retention-note'>{NOTES.sanitize}</div>
         </div>
       </section>
+
+      <AutoContinuePanel snap={snap} />
+
+      <KeepaliveStripPanel snap={snap} />
 
       <ClineHeadersPanel snap={snap} />
 
@@ -2050,6 +2235,8 @@ declare global {
       renderRetry(data?: unknown): void
       renderDebug(data?: unknown): void
       renderSanitize(data?: unknown): void
+      renderAutoContinue(data?: unknown): void
+      renderKeepaliveStrip(data?: unknown): void
       renderPrompt(data?: unknown): void
       renderStorage(data?: unknown): void
       showCategory(category?: string | null): void
@@ -2064,6 +2251,8 @@ window.wbSettingsPanel = {
   renderRetry,
   renderDebug,
   renderSanitize,
+  renderAutoContinue,
+  renderKeepaliveStrip,
   renderPrompt,
   renderStorage,
   showCategory,

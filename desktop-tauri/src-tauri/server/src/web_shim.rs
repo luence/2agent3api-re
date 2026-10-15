@@ -1148,6 +1148,16 @@ pub fn shim_js() -> &'static str {
       return call('PUT', '/api/sanitize', { sanitizeBlacklistFingerprints: enabled === true });
     },
 
+    // ── 长度截断自动续写 ──
+    getAutoContinue: function () { return call('GET', '/api/auto-continue'); },
+    saveAutoContinue: function (payload) { return call('PUT', '/api/auto-continue', payload || {}); },
+
+    // ── 丢弃保活换行心跳分片 ──
+    getKeepaliveStrip: function () { return call('GET', '/api/keepalive-strip'); },
+    saveKeepaliveStrip: function (enabled) {
+      return call('PUT', '/api/keepalive-strip', { stripNewlineKeepalive: enabled === true });
+    },
+
     // ── Cline 伪装头（转发头逐键覆盖）──
     // 与桌面桥（src/bridge.rs 的 getClineHeaders / saveClineHeaders）同一映射。
     // 这两个方法曾经漏在网页桥里：设置页调用 `getClineHeaders` 抛
