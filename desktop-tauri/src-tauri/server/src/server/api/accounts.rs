@@ -399,6 +399,114 @@ pub async fn dispatch(
 /// （③），该 400 随之退役；纪律不变 —— **绝不写进没人认的组**。分派用穷举
 /// match：新增 provider 时编译器会强制给出分支；注册表里没有的 id（前端比后端
 /// 新、或手改的请求）仍走 ④ —— 老客户端不带 provider 字段，未知 id 不能报错。
+/// 支持手工平铺凭证添加（粘贴 token/refreshToken）为 WorkBuddy/CodeBuddy 标准会话。
+fn prepare_workbuddy_payload(payload: &Value, provider: Option<&str>) -> Value {
+    if payload.get("auth").and_then(Value::as_object).is_some() {
+        return payload.clone();
+    }
+    let token = payload
+        .get("token")
+        .or_else(|| payload.get("accessToken"))
+        .or_else(|| payload.get("access_token"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if token.is_empty() {
+        return payload.clone();
+    }
+    let refresh_token = payload
+        .get("refreshToken")
+        .or_else(|| payload.get("refresh_token"))
+        .or_else(|| payload.get("refresh"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+
+    let kind = provider
+        .and_then(crate::server::core::providers::kind_from_id)
+        .unwrap_or(crate::server::core::providers::ProviderKind::WorkBuddy);
+    let region = crate::server::core::providers::workbuddy::Region::from_kind(kind)
+        .unwrap_or(crate::server::core::providers::workbuddy::Region::Cn);
+    let info = region.edition();
+
+    let claims = crate::server::core::providers::raccoon::jwt::decode_jwt_claims(token);
+    let mut uid = payload
+        .get("uid")
+        .or_else(|| payload.get("userId"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("")
+        .to_string();
+    if uid.is_empty() {
+        if let Some(ref c) = claims {
+            for key in ["sub", "userId", "uid", "user_id"] {
+                if let Some(val) = c.get(key).and_then(Value::as_str) {
+                    let val = val.trim();
+                    if !val.is_empty() {
+                        uid = val.to_string();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if uid.is_empty() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        token.hash(&mut hasher);
+        uid = format!("cb-{:016x}", hasher.finish());
+    }
+
+    let mut nickname = payload
+        .get("name")
+        .or_else(|| payload.get("nickname"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("")
+        .to_string();
+    if nickname.is_empty() {
+        if let Some(ref c) = claims {
+            for key in ["nickname", "name", "preferred_username", "email"] {
+                if let Some(val) = c.get(key).and_then(Value::as_str) {
+                    let val = val.trim();
+                    if !val.is_empty() {
+                        nickname = val.to_string();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if nickname.is_empty() {
+        nickname = format!("{} 账号", crate::server::core::providers::label_of(region.provider_id()));
+    }
+
+    let mut auth = serde_json::Map::new();
+    auth.insert("accessToken".to_string(), Value::String(token.to_string()));
+    if !refresh_token.is_empty() {
+        auth.insert("refreshToken".to_string(), Value::String(refresh_token.to_string()));
+    }
+    if let Some(exp) = claims.as_ref().and_then(|c| c.get("exp")).and_then(Value::as_i64) {
+        auth.insert("expiresAt".to_string(), Value::Number((exp * 1000).into()));
+    }
+
+    let mut account = serde_json::Map::new();
+    account.insert("uid".to_string(), Value::String(uid));
+    account.insert("nickname".to_string(), Value::String(nickname));
+
+    json!({
+        "endpoint": info.endpoint,
+        "prefixPath": info.prefix_path,
+        "platform": info.platform,
+        "edition": info.id,
+        "auth": auth,
+        "account": account,
+        "provider": region.provider_id(),
+        "name": payload.get("name").cloned().unwrap_or(Value::Null)
+    })
+}
+
 pub async fn add_account(state: &ServerState, body: &Bytes) -> Response {
     let payload = match parse_json_body(&body, "上传内容不是有效 JSON") {
         Ok(value) => value,
@@ -808,10 +916,12 @@ pub async fn add_account(state: &ServerState, body: &Bytes) -> Response {
         // `None`（老客户端不带 provider 字段）按国内版，历史契约不变。
         Some(crate::server::core::providers::ProviderKind::WorkBuddy)
         | Some(crate::server::core::providers::ProviderKind::WorkBuddyIntl)
+        | Some(crate::server::core::providers::ProviderKind::CodeBuddy)
         | None => {
             let provider = crate::server::core::providers::kind_from_id(provider)
                 .map(crate::server::core::providers::kind_id);
-            store.add_account(&payload, None, provider)
+            let final_payload = prepare_workbuddy_payload(&payload, provider);
+            store.add_account(&final_payload, import_name, provider)
         }
     };
     match result {

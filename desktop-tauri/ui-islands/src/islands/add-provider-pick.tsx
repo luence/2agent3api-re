@@ -60,6 +60,7 @@ export function typeValueOf(value: string): AccountType {
 export const PROVIDER_ICONS: Record<string, string> = {
   workbuddy: 'assets/providers/workbuddy.png',
   'workbuddy-intl': 'assets/providers/workbuddy.png',
+  codebuddy: 'assets/providers/codebuddy.png',
   raccoon: 'assets/providers/raccoon.png',
   catpaw: 'assets/providers/catpaw.png',
   autoclaw: 'assets/providers/autoclaw.png',

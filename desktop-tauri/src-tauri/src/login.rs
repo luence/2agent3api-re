@@ -815,6 +815,7 @@ fn normalize_provider(provider: &str) -> Result<&'static str, String> {
         // 内嵌窗口流程，差别只在后端按它落哪一组账号。**这一条不能少** ——
         // 少了它前端会收到「未知的 provider」而登录按钮直接失败。
         "workbuddy-intl" => Ok("workbuddy-intl"),
+        "codebuddy" => Ok("codebuddy"),
         "raccoon" => Ok("raccoon"),
         // Qoder 两个地区（2026-10 拆家后是独立 provider）：设备授权两站同构，
         // 壳侧只透传 provider id，地区由后端按 id 反查（与 ZCode 同款）。
@@ -1108,6 +1109,7 @@ pub async fn start(
         // （同一块里的分段控件），两者一致时无所谓，不一致时**以 provider 为准**
         // —— 与后端 `login_start` 的口径相同（见 api::session 的说明）。
         "workbuddy-intl" => "intl",
+        "codebuddy" => "codebuddy",
         _ => {
             if edition == "intl" { "intl" } else { "cn" }
         }
@@ -1184,6 +1186,7 @@ pub async fn start(
         // OfficeAce 只有一家（自助 OAuth 一条链，没有地区/版本概念），品牌名里
         // 不需要地区
         "officeace" => "OfficeAce 果办",
+        "codebuddy" => "CodeBuddy",
         _ => "WorkBuddy",
     };
     // 窗口标题：Cline 两家的池、ZCode 两家的地区、CodeArts / Trae / OfficeAce
@@ -1209,7 +1212,7 @@ pub async fn start(
     // 点了白屏 —— 与国内版没有那两个按钮是两回事）。
     let intl_workbuddy = {
         use agent2api_server::server::core::providers::workbuddy::Region;
-        Region::from_provider_id(provider).is_some_and(|region| region != Region::Cn)
+        Region::from_provider_id(provider).is_some_and(|region| region == Region::Intl)
     };
     let social_restore = social_restore && intl_workbuddy;
     let result = if use_external {

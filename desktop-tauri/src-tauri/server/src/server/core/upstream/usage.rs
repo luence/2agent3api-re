@@ -298,7 +298,7 @@ pub struct AttemptDetail {
     /// 与 `note_attempt` 给 `account_name` 的口径完全一致）。
     ///
     /// 与 `provider` 并列而不是替代它：一家可以有多个账号，弹层里
-    /// 「WorkBuddy / aibjchat001@gmail.com」比只有家名更能定位到那一轮。
+    /// 「WorkBuddy / user@example.com」比只有家名更能定位到那一轮。
     /// 空串 = 该轮没有账号记录（用默认登录态转发），展示层给占位文案。
     #[serde(default)]
     pub account: String,

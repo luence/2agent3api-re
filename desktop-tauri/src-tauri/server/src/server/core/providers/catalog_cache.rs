@@ -44,9 +44,11 @@
 //! `logging::log` / `verbose` 要往同一个库写 `logs` 表 —— `std::sync::Mutex`
 //! 不可重入，在闭包里打日志会当场死锁。本模块的日志一律在 `with` 之外打。
 
+use std::collections::HashSet;
 use std::sync::OnceLock;
 
 use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 use crate::server::db::Db;
@@ -105,11 +107,14 @@ pub const SCOPE_ANTIGRAVITY: &str = "antigravity";
 
 /// OfficeAce（华为云果办 / OfficeClaw）的模型目录缓存槽
 pub const SCOPE_OFFICEACE: &str = "officeace";
+/// CodeBuddy (国内版) 模型目录缓存槽
+pub const SCOPE_CODEBUDDY: &str = "codebuddy";
 
 /// 全部 scope（事实来源：`cached_scopes` 按它遍历；新增一家时加在这里）。
 pub const ALL_SCOPES: &[&str] = &[
     SCOPE_WORKBUDDY,
     SCOPE_WORKBUDDY_INTL,
+    SCOPE_CODEBUDDY,
     SCOPE_RACCOON,
     SCOPE_QODER_GLOBAL,
     SCOPE_QODER_CN,
@@ -126,13 +131,17 @@ pub const ALL_SCOPES: &[&str] = &[
     SCOPE_MONKEYCODE_INTL,
     SCOPE_COMMANDCODE,
     SCOPE_ANTIGRAVITY,
+    SCOPE_OFFICEACE,
 ];
 
 /// 一份清单缓存
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CachedCatalog {
     /// 落地后的清单（各家内存状态的形态）
+    #[serde(default)]
     pub models: Vec<Value>,
     /// 那次成功刷新的时刻（毫秒）
+    #[serde(rename = "fetchedAt", default)]
     pub fetched_at: i64,
 }
 
@@ -158,15 +167,38 @@ fn db() -> Option<Db> {
 /// 处理的异常，它只有「有」与「没有」两种结果。
 pub fn load(scope: &str) -> Option<CachedCatalog> {
     let db = db()?;
-    let all = db.with(read_all).flatten()?;
-    let entry = all.get(scope)?;
-    let models = entry.get("models").and_then(Value::as_array).cloned()?;
-    // 空清单不算缓存：它表达的是「这次没拉到东西」，装回去等于把目录清空
-    if models.is_empty() {
+    db.with(|conn| read_scope(conn, scope)).flatten()
+}
+
+/// 读取单个 scope 的缓存条目：
+/// 1. 优先通过 SQLite 原生 `json_extract(value, '$.' || ?1)` 快速提取对应子树，
+///    避免反序列化全部 Provider 的完整庞大 JSON 树；
+/// 2. 兼容兜底：若 json_extract 未能命中或解析失败，回退至全量提取解析。
+fn read_scope(conn: &Connection, scope: &str) -> Option<CachedCatalog> {
+    let path = format!("$.{scope}");
+    let query_res: Result<Option<String>, _> = conn.query_row(
+        "SELECT json_extract(value, ?1) FROM kv WHERE key = ?2",
+        params![path, KV_KEY],
+        |row| row.get(0),
+    );
+
+    if let Ok(Some(text)) = query_res {
+        if let Ok(entry) = serde_json::from_str::<CachedCatalog>(&text) {
+            if !entry.models.is_empty() {
+                return Some(entry);
+            }
+            return None;
+        }
+    }
+
+    // 容错兜底：若原生提取未命中，读全量 Map 提取目标字段
+    let mut all = read_all(conn)?;
+    let entry = all.remove(scope)?;
+    let catalog: CachedCatalog = serde_json::from_value(entry).ok()?;
+    if catalog.models.is_empty() {
         return None;
     }
-    let fetched_at = entry.get("fetchedAt").and_then(Value::as_i64).unwrap_or(0);
-    Some(CachedCatalog { models, fetched_at })
+    Some(catalog)
 }
 
 /// 写一份缓存（读改写整份，在同一把锁内完成）。
@@ -201,22 +233,42 @@ pub fn save(scope: &str, models: &[Value], fetched_at: i64) {
 ///
 /// 让「这次启动的清单是从缓存恢复的、是什么时候拉的」在日志里留痕 ——
 /// 没有它，排障时「清单是刚拉的还是上次的」只能靠翻数据库回答。
-/// 一次读库（不是逐 scope 调 [`load`]）：整份缓存本来就在一行里。
-pub fn cached_scopes() -> Vec<(&'static str, i64)> {
+/// 一次读库：整份缓存本来就在一行里。
+/// 兼具确定性顺序与动态防呆：优先按 ALL_SCOPES 已知顺序输出，未列入 ALL_SCOPES
+/// 的新 Provider scope 也会被动态补齐，绝不漏显。
+pub fn cached_scopes() -> Vec<(String, i64)> {
     let Some(db) = db() else { return Vec::new() };
     let Some(all) = db.with(read_all).flatten() else { return Vec::new() };
-    ALL_SCOPES
-        .iter()
-        .filter_map(|scope| {
-            let entry = all.get(*scope)?;
-            let models = entry.get("models").and_then(Value::as_array)?;
-            if models.is_empty() {
-                return None;
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+
+    for scope in ALL_SCOPES {
+        if let Some(entry) = all.get(*scope) {
+            let models = entry.get("models").and_then(Value::as_array);
+            if let Some(models) = models {
+                if !models.is_empty() {
+                    let at = entry.get("fetchedAt").and_then(Value::as_i64).unwrap_or(0);
+                    result.push((scope.to_string(), at));
+                    seen.insert(*scope);
+                }
             }
-            let at = entry.get("fetchedAt").and_then(Value::as_i64).unwrap_or(0);
-            Some((*scope, at))
-        })
-        .collect()
+        }
+    }
+
+    for (scope, entry) in &all {
+        if seen.contains(scope.as_str()) {
+            continue;
+        }
+        let models = entry.get("models").and_then(Value::as_array);
+        if let Some(models) = models {
+            if !models.is_empty() {
+                let at = entry.get("fetchedAt").and_then(Value::as_i64).unwrap_or(0);
+                result.push((scope.clone(), at));
+            }
+        }
+    }
+
+    result
 }
 
 /// 拉取时刻 → 「多久之前」的粗粒度文案（日志用）。
@@ -227,7 +279,8 @@ pub fn age_text(fetched_at: i64) -> String {
     if fetched_at <= 0 {
         return "未知".to_string();
     }
-    let age = logging::now_ms() - fetched_at;
+    let now = logging::now_ms();
+    let age = (now - fetched_at).max(0);
     if age < 60_000 {
         "刚刚".to_string()
     } else if age < 3_600_000 {
@@ -240,18 +293,24 @@ pub fn age_text(fetched_at: i64) -> String {
 }
 
 /// 读出整份缓存对象（键不存在 / 值坏 → `None`，由调用方按「没有缓存」处理）。
+/// 解构 Value::Object 转移所有权，消除整棵 AST 树的深度克隆开销。
 fn read_all(conn: &Connection) -> Option<Map<String, Value>> {
     let text: Option<String> = conn
         .query_row("SELECT value FROM kv WHERE key = ?1", params![KV_KEY], |row| {
             row.get(0)
         })
-        .ok();
-    serde_json::from_str::<Value>(&text?).ok()?.as_object().cloned()
+        .ok()?;
+    let text = text?;
+    match serde_json::from_str::<Value>(&text).ok()? {
+        Value::Object(map) => Some(map),
+        _ => None,
+    }
 }
 
 /// 整份写回（单行 UPSERT）。
+/// 直接序列化引用，消除全部克隆开销。
 fn write_all(conn: &Connection, all: &Map<String, Value>) -> bool {
-    let Ok(text) = serde_json::to_string(&Value::Object(all.clone())) else {
+    let Ok(text) = serde_json::to_string(all) else {
         return false;
     };
     conn.execute(
@@ -260,4 +319,101 @@ fn write_all(conn: &Connection, all: &Map<String, Value>) -> bool {
         params![KV_KEY, text],
     )
     .is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cached_catalog_serde_roundtrip() {
+        let original = CachedCatalog {
+            models: vec![json!({"id": "gpt-4", "name": "GPT-4"})],
+            fetched_at: 1750000000000,
+        };
+        let serialized = serde_json::to_string(&original).expect("serialize failed");
+        assert!(serialized.contains("fetchedAt"));
+        let parsed: CachedCatalog = serde_json::from_str(&serialized).expect("deserialize failed");
+        assert_eq!(parsed.models.len(), 1);
+        assert_eq!(parsed.fetched_at, 1750000000000);
+    }
+
+    #[test]
+    fn test_age_text_boundaries() {
+        assert_eq!(age_text(0), "未知");
+        assert_eq!(age_text(-100), "未知");
+        let now = logging::now_ms();
+        // 未来时间防御（时钟微移）
+        assert_eq!(age_text(now + 10_000), "刚刚");
+        // 刚刚
+        assert_eq!(age_text(now - 30_000), "刚刚");
+        // 分钟前
+        assert_eq!(age_text(now - 120_000), "2 分钟前");
+        // 小时前
+        assert_eq!(age_text(now - 7_200_000), "2 小时前");
+        // 天前
+        assert_eq!(age_text(now - 172_800_000), "2 天前");
+    }
+
+    #[test]
+    fn test_read_scope_json_extract_and_fallback() {
+        let conn = Connection::open_in_memory().expect("open in memory db failed");
+        conn.execute(
+            "CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+            [],
+        )
+        .expect("create table failed");
+
+        let initial_json = json!({
+            "workbuddy": {
+                "models": [{"id": "m1"}],
+                "fetchedAt": 1000
+            },
+            "empty_models": {
+                "models": [],
+                "fetchedAt": 2000
+            }
+        });
+
+        conn.execute(
+            "INSERT INTO kv (key, value) VALUES (?1, ?2)",
+            params![KV_KEY, serde_json::to_string(&initial_json).unwrap()],
+        )
+        .expect("insert failed");
+
+        // 正常命中
+        let wb = read_scope(&conn, "workbuddy").expect("expected some catalog");
+        assert_eq!(wb.models.len(), 1);
+        assert_eq!(wb.fetched_at, 1000);
+
+        // 空 models 应该过滤为 None
+        let empty = read_scope(&conn, "empty_models");
+        assert!(empty.is_none());
+
+        // 不存在的 scope 应该返回 None
+        let missing = read_scope(&conn, "non_existent");
+        assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_write_and_read_all_zero_copy() {
+        let conn = Connection::open_in_memory().expect("open in memory db failed");
+        conn.execute(
+            "CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+            [],
+        )
+        .expect("create table failed");
+
+        let mut map = Map::new();
+        map.insert(
+            "custom_scope".to_string(),
+            json!({"models": [{"id": "test"}], "fetchedAt": 5000}),
+        );
+
+        assert!(write_all(&conn, &map));
+
+        let loaded = read_all(&conn).expect("expected read_all Some");
+        assert_eq!(loaded.len(), 1);
+        assert!(loaded.contains_key("custom_scope"));
+    }
 }

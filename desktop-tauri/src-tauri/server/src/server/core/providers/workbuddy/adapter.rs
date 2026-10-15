@@ -109,6 +109,8 @@ impl WorkBuddyAdapter {
 pub static WORKBUDDY_ADAPTER: WorkBuddyAdapter = WorkBuddyAdapter::new(Region::Cn);
 /// 国际版实例（拆家后与国内版各自独立，见模块头）
 pub static WORKBUDDY_INTL_ADAPTER: WorkBuddyAdapter = WorkBuddyAdapter::new(Region::Intl);
+/// CodeBuddy 国内版实例
+pub static CODEBUDDY_ADAPTER: WorkBuddyAdapter = WorkBuddyAdapter::new(Region::CodeBuddy);
 
 impl ProviderAdapter for WorkBuddyAdapter {
     fn kind(&self) -> ProviderKind {

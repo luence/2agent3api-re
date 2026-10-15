@@ -67,21 +67,24 @@ pub enum Region {
     Cn,
     /// 国际版（`www.workbuddy.ai`；provider id 是 `workbuddy-intl`）
     Intl,
+    /// CodeBuddy 国内版（`copilot.tencent.com`；provider id 是 `codebuddy`）
+    CodeBuddy,
 }
 
 impl Region {
-    /// 两个地区（注册表顺序：国内版在前）
-    pub const ALL: [Region; 2] = [Region::Cn, Region::Intl];
+    /// 全部地区（注册表顺序：国内版在前）
+    pub const ALL: [Region; 3] = [Region::Cn, Region::Intl, Region::CodeBuddy];
 
     /// 本地区对应哪个 provider kind（地区 → 身份的**唯一**映射）
     pub fn kind(self) -> ProviderKind {
         match self {
             Self::Cn => ProviderKind::WorkBuddy,
             Self::Intl => ProviderKind::WorkBuddyIntl,
+            Self::CodeBuddy => ProviderKind::CodeBuddy,
         }
     }
 
-    /// 本地区的 provider id（`"workbuddy"` / `"workbuddy-intl"`）
+    /// 本地区的 provider id（`"workbuddy"` / `"workbuddy-intl"` / `"codebuddy"`）
     pub fn provider_id(self) -> &'static str {
         kind_id(self.kind())
     }
@@ -93,7 +96,7 @@ impl Region {
             .find(|region| region.provider_id() == provider_id)
     }
 
-    /// 这个 kind 是不是 workbuddy 系（两家都算）—— 判据只在这里写一份
+    /// 这个 kind 是不是 workbuddy 系（三家都算）—— 判据只在这里写一份
     pub fn from_kind(kind: ProviderKind) -> Option<Self> {
         Self::ALL.into_iter().find(|region| region.kind() == kind)
     }
@@ -103,6 +106,7 @@ impl Region {
         match self {
             Self::Cn => "国内版",
             Self::Intl => "国际版",
+            Self::CodeBuddy => "国内版",
         }
     }
 
@@ -119,11 +123,12 @@ impl Region {
         resolve_edition(Some(self.id()))
     }
 
-    /// 本地区的版本 id（`"cn"` / `"intl"`；与 `resolve_edition` 的取值同域）
+    /// 本地区的版本 id（`"cn"` / `"intl"` / `"codebuddy"`；与 `resolve_edition` 的取值同域）
     pub fn id(self) -> &'static str {
         match self {
             Self::Cn => "cn",
             Self::Intl => "intl",
+            Self::CodeBuddy => "codebuddy",
         }
     }
 
@@ -140,6 +145,7 @@ impl Region {
         match self {
             Self::Cn => crate::server::core::providers::catalog_cache::SCOPE_WORKBUDDY,
             Self::Intl => crate::server::core::providers::catalog_cache::SCOPE_WORKBUDDY_INTL,
+            Self::CodeBuddy => crate::server::core::providers::catalog_cache::SCOPE_CODEBUDDY,
         }
     }
 
@@ -182,6 +188,7 @@ impl Region {
                     None
                 }
             }),
+            Self::CodeBuddy => env_text("CODEBUDDY_TOKEN"),
         }
     }
 
@@ -199,6 +206,7 @@ impl Region {
                     None
                 }
             }),
+            Self::CodeBuddy => env_text("CODEBUDDY_ENDPOINT"),
         }
     }
 }

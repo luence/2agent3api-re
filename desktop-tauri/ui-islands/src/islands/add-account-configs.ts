@@ -93,6 +93,30 @@ export const maxLengthOf = (field: FieldSpec): number =>
 
 /* ─── 各家配置 ─────────────────────────────── */
 
+const CODEBUDDY: ProviderConfig = {
+  provider: 'codebuddy',
+  label: t('CodeBuddy (国内版)'),
+  addButton: t('添加 CodeBuddy 账号'),
+  desktop: false,
+  webLogin: {
+    noteHtml: t('打开腾讯云 CodeBuddy (国内版) 官方登录页进行登录。登录完成后自动加入列表。'),
+    button: t('打开 CodeBuddy 网页登录'),
+    busyText: t('等待 CodeBuddy 登录完成…'),
+    edition: 'codebuddy',
+    modes: [
+      { value: 'embedded', label: t('内嵌窗口（推荐）'), hint: t('内嵌窗口打开；完成后自动加入列表，关窗即取消等待') },
+      { value: 'external', label: t('系统浏览器'), hint: t('系统浏览器打开（复用已登录账号）；完成后自动加入列表') },
+    ],
+  },
+  manualTitle: t('填写凭证添加'),
+  manualNote: t('填写 CodeBuddy 的 accessToken，可选填 refreshToken 与备注名。'),
+  fields: [
+    { key: 'token', label: 'accessToken', rows: 3, placeholder: t('粘贴 CodeBuddy accessToken') },
+    { key: 'refreshToken', inputKey: 'refresh', label: 'refreshToken', rows: 2, optional: true, placeholder: t('可选，填写后支持自动续期') },
+    { key: 'name', label: t('备注名'), optional: true, placeholder: t('可选，留空使用账号 uid') },
+  ],
+}
+
 const RACCOON: ProviderConfig = {
   // raccoon_accounts::add_raccoon_account：token / access_token、refreshToken / refresh_token、name
   provider: 'raccoon',
@@ -724,6 +748,7 @@ const OFFICEACE: ProviderConfig = {
 
 /** 内置家的表单块，顺序与旧 ADD_FORMS 一致（只影响 DOM 里的块顺序，不影响界面） */
 export const BUILTIN_CONFIGS: ProviderConfig[] = [
+  CODEBUDDY,
   RACCOON,
   CATPAW,
   AUTOCLAW,

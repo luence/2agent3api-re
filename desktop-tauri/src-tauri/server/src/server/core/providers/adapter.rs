@@ -1094,6 +1094,7 @@ pub fn adapter_for(kind: ProviderKind) -> &'static dyn ProviderAdapter {
         // WorkBuddy 的两个地区是两个 provider、两个实例（同一份实现的按地区
         // 参数化，见 `workbuddy::region` 与 `workbuddy::adapter` 的模块头）
         ProviderKind::WorkBuddyIntl => &super::workbuddy::WORKBUDDY_INTL_ADAPTER,
+        ProviderKind::CodeBuddy => &super::workbuddy::CODEBUDDY_ADAPTER,
         ProviderKind::Raccoon => &super::raccoon::RACCOON_ADAPTER,
         ProviderKind::CatPaw => &super::catpaw::adapter::CATPAW_ADAPTER,
         ProviderKind::AutoClaw => &super::autoclaw::AUTOCLAW_ADAPTER,
@@ -1184,6 +1185,7 @@ pub fn implemented_kinds() -> Vec<ProviderKind> {
         // 否则国际版的目录刷新永远不会被调度（症状是「国际版账号加了、
         // 模型列表一直是内置兜底」）。
         ProviderKind::WorkBuddyIntl,
+        ProviderKind::CodeBuddy,
         ProviderKind::Raccoon,
         ProviderKind::CatPaw,
         ProviderKind::AutoClaw,

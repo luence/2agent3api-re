@@ -34,7 +34,8 @@ pub mod normalize;
 pub mod region;
 
 pub use adapter::{
-    ensure_leading_system_message, WorkBuddyAdapter, WORKBUDDY_ADAPTER, WORKBUDDY_INTL_ADAPTER,
+    ensure_leading_system_message, WorkBuddyAdapter, CODEBUDDY_ADAPTER, WORKBUDDY_ADAPTER,
+    WORKBUDDY_INTL_ADAPTER,
 };
 pub use keepalive::{DEFAULT_FREE_MODELS, build_daily_activity_request};
 pub use region::{is_workbuddy_family, Region};

@@ -146,15 +146,33 @@ const EDITION_INTL: EditionInfo = EditionInfo {
     data_folder_name: ".workbuddy-ai",
 };
 
-/// 全部版本，顺序与 Node 版 EDITIONS 的键顺序一致（cn → intl）
-pub const EDITIONS: &[EditionInfo] = &[EDITION_CN, EDITION_INTL];
+/// CodeBuddy (国内版)：copilot.tencent.com / platform codebuddy
+const EDITION_CODEBUDDY: EditionInfo = EditionInfo {
+    id: "codebuddy",
+    label: "国内版",
+    endpoint: DEFAULT_ENDPOINT,
+    staging_endpoint: STAGING_ENDPOINT,
+    prefix_path: DEFAULT_PREFIX_PATH,
+    platform: "codebuddy",
+    ua_platform: "CodeBuddy",
+    product_name: "CodeBuddy",
+    client_version: WORKBUDDY_CLIENT_VERSION,
+    cli_version: WORKBUDDY_CLI_VERSION,
+    data_folder_name: ".codebuddy",
+};
 
-/// 宽松解析版本 id：接受 cn/intl 及若干常见写法，未知值回落国内版
+/// 全部版本，顺序与 Node 版 EDITIONS 的键顺序一致（cn → intl → codebuddy）
+pub const EDITIONS: &[EditionInfo] = &[EDITION_CN, EDITION_INTL, EDITION_CODEBUDDY];
+
+/// 宽松解析版本 id：接受 cn/intl/codebuddy 及若干常见写法，未知值回落国内版
 /// （对照 Node 版 `resolveEdition`，别名名单逐字保留）。
 pub fn resolve_edition(value: Option<&str>) -> &'static EditionInfo {
     let id = value.unwrap_or("").trim().to_lowercase();
     if id.is_empty() {
         return &EDITION_CN;
+    }
+    if id == "codebuddy" || id == "codebuddy-cn" {
+        return &EDITION_CODEBUDDY;
     }
     if id == "cn" {
         return &EDITION_CN;

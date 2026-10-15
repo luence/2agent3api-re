@@ -192,6 +192,8 @@ pub enum ProviderKind {
     /// （`kind` / `provider_id` / `from_provider_id`），别处不要再写
     /// `"workbuddy-intl"` 这类字面量。
     WorkBuddyIntl,
+    /// CodeBuddy **国内版**（`copilot.tencent.com`，`codebuddy`）
+    CodeBuddy,
     /// 小浣熊（适配实现在 `raccoon/`：JWT 凭证 + `/model_catalog` + SSE 回写）
     Raccoon,
     /// CatPaw（美团；架构文档 §9）。适配实现在 `catpaw/adapter.rs`
@@ -498,6 +500,7 @@ pub const PROVIDERS: &[ProviderMeta] = &[
     // 顺序也决定模型目录合并时同名模型先归谁家 —— 国内版在前，与存量账号的
     // 归属一致。
     ProviderMeta { id: "workbuddy-intl", label: "WorkBuddy 国际版" },
+    ProviderMeta { id: "codebuddy", label: "CodeBuddy (国内版)" },
     ProviderMeta { id: "raccoon", label: "小浣熊" },
     ProviderMeta { id: "catpaw", label: "CatPaw" },
     // AutoClaw 两个地区**相邻**排列（本次改动的要求）：界面上它们是同一条产品线的
@@ -611,6 +614,7 @@ pub fn kind_from_id(id: &str) -> Option<ProviderKind> {
     match id {
         "workbuddy" => Some(ProviderKind::WorkBuddy),
         "workbuddy-intl" => Some(ProviderKind::WorkBuddyIntl),
+        "codebuddy" => Some(ProviderKind::CodeBuddy),
         "raccoon" => Some(ProviderKind::Raccoon),
         "catpaw" => Some(ProviderKind::CatPaw),
         "autoclaw" => Some(ProviderKind::AutoClaw),
@@ -652,6 +656,7 @@ pub const fn kind_id(kind: ProviderKind) -> &'static str {
     match kind {
         ProviderKind::WorkBuddy => "workbuddy",
         ProviderKind::WorkBuddyIntl => "workbuddy-intl",
+        ProviderKind::CodeBuddy => "codebuddy",
         ProviderKind::Raccoon => "raccoon",
         ProviderKind::CatPaw => "catpaw",
         ProviderKind::AutoClaw => "autoclaw",

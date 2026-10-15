@@ -305,7 +305,7 @@ function RetryRows({ item }: { item: AttemptDetail }) {
  *     一条明细 —— 转发一开始就在途回写，所以这是常态），以及被手工改过的库。前者写「进行中…」，
  *     后者才写「无结果记录」：对一条正在跑的请求说「无结果」会被读成它已经失败。
  *
- * 账号名挂在提供商名后面：一家可以有多个账号，「WorkBuddy / aibjchat001@gmail.com」比只有家名
+ * 账号名挂在提供商名后面：一家可以有多个账号，「WorkBuddy / user@example.com」比只有家名
  * 更能定位到那一轮（这些信息改造前只在运行日志里）。
  */
 function AttemptRow({ item, index, inFlight }: { item: AttemptDetail; index: number; inFlight: boolean }) {
