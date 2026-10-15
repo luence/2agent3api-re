@@ -536,6 +536,7 @@ pub fn shim_js() -> &'static str {
     if (handler) return handler(args);
     // 文件对话框类：导入要走文件选择，单独给一条带输入框的链路
     if (command === 'import_accounts') return importAccountsViaFile();
+    if (command === 'pick_prompt_file') return pickPromptFileViaInput();
     return Promise.reject(new Error(
       command === 'run_installer'
         ? '网页端不启动安装程序：容器内的更新请用「一键更新」（设置 → 软件更新）'
@@ -622,6 +623,73 @@ pub fn shim_js() -> &'static str {
           settled = true;
           reject(asError(error));
         });
+      });
+
+      document.body.appendChild(input);
+      window.addEventListener('focus', onReturn);
+      document.addEventListener('visibilitychange', onVisibility);
+      input.click();
+    });
+  }
+
+  /**
+   * 网页端的「选择提示词文件」：通过 <input type=file> 读取文件 UTF-8 文本
+   */
+  function pickPromptFileViaInput() {
+    return new Promise(function (resolve) {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt,.md,.json,.yaml,.yml,.prompt,text/plain';
+      input.setAttribute('aria-hidden', 'true');
+      input.tabIndex = -1;
+      input.style.position = 'fixed';
+      input.style.left = '-9999px';
+      input.style.top = '0';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.opacity = '0';
+
+      var settled = false;
+      var picked = false;
+      var settleTimer = null;
+
+      function cleanup() {
+        window.removeEventListener('focus', onReturn);
+        document.removeEventListener('visibilitychange', onVisibility);
+        if (settleTimer !== null) { window.clearTimeout(settleTimer); settleTimer = null; }
+        input.remove();
+      }
+      function settleCancel() {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve({ canceled: true });
+      }
+      function onReturn() {
+        if (settleTimer !== null) return;
+        settleTimer = window.setTimeout(function () {
+          settleTimer = null;
+          if (!picked) settleCancel();
+        }, 400);
+      }
+      function onVisibility() {
+        if (document.visibilityState === 'visible') onReturn();
+      }
+
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        if (!file) { settleCancel(); return; }
+        picked = true;
+        settled = true;
+        cleanup();
+        var reader = new FileReader();
+        reader.onload = function () {
+          resolve({ canceled: false, path: file.name, content: String(reader.result || '') });
+        };
+        reader.onerror = function () {
+          resolve({ canceled: true });
+        };
+        reader.readAsText(file, 'utf-8');
       });
 
       document.body.appendChild(input);
@@ -1263,6 +1331,7 @@ pub fn shim_js() -> &'static str {
     },
     exportAccounts: function () { return invokeShell('export_accounts'); },
     importAccounts: function () { return invokeShell('import_accounts'); },
+    pickPromptFile: function () { return pickPromptFileViaInput(); },
   };
 
   // 把筛选条件转成查询串（与桌面 bridge 的 toQuery 同语义：空值跳过）

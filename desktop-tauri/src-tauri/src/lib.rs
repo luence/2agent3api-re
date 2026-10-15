@@ -66,9 +66,9 @@ pub const MAIN_WINDOW_LABEL: &str = "main";
 /// 判据取 `debug_assertions`，与下面「开发态不做安装迁移 / 自启刷新」同一个口径。
 pub fn app_title() -> &'static str {
     if cfg!(debug_assertions) {
-        "[Dev]Agent2API v2 · 多提供商本地网关"
+        "[Dev]Agent2API v3 · 多提供商本地网关"
     } else {
-        "Agent2API v2 · 多提供商本地网关"
+        "Agent2API v3 · 多提供商本地网关"
     }
 }
 
@@ -282,6 +282,7 @@ pub fn run() {
             commands::cancel_login,
             commands::export_logs,
             commands::pick_folder,
+            commands::pick_prompt_file,
             commands::get_app_settings,
             commands::save_app_settings,
             commands::export_accounts,

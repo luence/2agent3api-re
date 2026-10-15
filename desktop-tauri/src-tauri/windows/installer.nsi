@@ -885,7 +885,21 @@ Function RestorePreviousInstallLocation
     Return
   ${EndIf}
 
-  ; 3. Check v1 key: Software\aimod-cc\Agent2API v1
+  ; 3. Check v2/v1 key: Software\aimod-cc\Agent2API v2 / v1
+  ReadRegStr $4 HKLM "Software\${MANUFACTURER}\Agent2API v2" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
+  ReadRegStr $4 HKCU "Software\${MANUFACTURER}\Agent2API v2" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
   ReadRegStr $4 HKLM "Software\${MANUFACTURER}\Agent2API v1" ""
   ${If} $4 != ""
   ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
@@ -902,6 +916,17 @@ Function RestorePreviousInstallLocation
 
   ; 4. Check Windows Uninstall registry keys (strip quotes if present)
   ReadRegStr $4 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API" "InstallLocation"
+  ${If} $4 != ""
+    StrCpy $5 $4 1
+    StrCmp $5 '"' 0 +2
+    StrCpy $4 $4 -1 1
+    ${If} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+      StrCpy $INSTDIR $4
+      Return
+    ${EndIf}
+  ${EndIf}
+
+  ReadRegStr $4 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v2" "InstallLocation"
   ${If} $4 != ""
     StrCpy $5 $4 1
     StrCmp $5 '"' 0 +2

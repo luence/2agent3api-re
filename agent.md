@@ -136,3 +136,11 @@ bash scripts/release.sh vX.Y.Z <run-id>   # 或显式指定 run
   ```
 
   只设 `HTTPS_PROXY` 就够（gh 的请求全是 HTTPS，实测不读 `HTTP_PROXY`）。第 8 节的 `scripts/release.sh` 已内置这一步（从 git 配置读取后透传给 gh），用脚本发版无需手动设。代理没开时 gh 会立刻报 `proxyconnect tcp: ... connection refused` 而不回退直连 —— 与 `git push` 的表现一致。
+
+## 11. 上游同步铁律：禁止用复制替换的形式导致原有功能丢失
+
+当从原作者仓库（`aimod-cc/agent2api`）合并或同步更新时：
+1. **禁止直接整文件拷贝覆盖**：必须使用 3-way merge 或按行比对的手术式增量合并。
+2. **保护自定义功能资产**：必须保全 CodeBuddy 国内模型、NSIS 智能就地覆盖更新安装器、递增式标题版本（v1/v2/v3）、提示词文件导入与正文联动系统、图片清洗 Vision Gate、以及 CI/CD 自动 Release 编译流。
+3. 详细保护规范与操作 SOP 详见根目录 [AGENTS.md](file:///g:/Personal/Desktop/agent2api/AGENTS.md)。
+

@@ -1808,6 +1808,17 @@ export async function savePromptText(text: string): Promise<boolean> {
   )
 }
 
+/**
+ * 导入提示词文件并直接存为生效正文（效果等同于编辑正文，并同步记下文件路径）。
+ */
+export async function importPromptFile(path: string, content: string): Promise<boolean> {
+  const lines = content.split('\n').length
+  return savePromptField(
+    t('已导入提示词文件（{lines} 行，已作为生效正文）', { lines }),
+    { promptFile: path, promptText: content },
+  )
+}
+
 /* ─── 系统提示词：按提供商 ─────────────────────── */
 
 /** 这一家在界面上的名字（清单里查不到就回显 id —— 与后端的兜底同一取向） */
@@ -1933,6 +1944,25 @@ export async function saveProviderPromptText(
     empty ? t('已清掉「{label}」界面编辑的正文', { label }) : t('「{label}」的提示词正文已更新', { label }),
     id,
     { ...providerPatch(snapshot.prompt, item), promptText: empty ? '' : text },
+  )
+}
+
+/**
+ * 为某一家导入提示词文件并存为生效正文。
+ */
+export async function importProviderPromptFile(
+  item: ProviderPromptState,
+  path: string,
+  content: string,
+): Promise<boolean> {
+  const id = knownProviderId(item.id)
+  if (!id) return false
+  const lines = content.split('\n').length
+  const label = promptProviderLabel(snapshot.prompt, id)
+  return saveProviderPrompt(
+    t('已为「{label}」导入提示词文件（{lines} 行，已作为生效正文）', { label, lines }),
+    id,
+    { ...providerPatch(snapshot.prompt, item), promptFile: path, promptText: content },
   )
 }
 

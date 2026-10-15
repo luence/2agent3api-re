@@ -389,7 +389,11 @@
 
 .prompt-input select { flex: 0 0 auto; width: 240px; }
 
-.prompt-input input[type="text"] { width: 100%; }
+.prompt-input input[type="text"] {
+  flex: 1 1 200px;
+  min-width: 0;
+  width: auto;
+}
 
 /* 分组条：「全局配置」与「按提供商配置」是两件相关但**作用范围不同**的事，
    不分组时它们是一串同构的行，读不出「哪几行是默认、哪几行是某家的例外」。

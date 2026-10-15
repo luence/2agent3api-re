@@ -199,6 +199,12 @@ export type SettingsBridge = {
     getModelsDev(): Promise<ModelsDevState | null | undefined>
     saveModelsDev(on: boolean): Promise<ModelsDevState | null | undefined>
     refreshModelsDev(): Promise<{ result?: ModelsDevRefreshResult; status?: ModelsDevState } | null | undefined>
+    pickPromptFile?(defaultPath?: string | null): Promise<{
+      canceled: boolean
+      unsupported?: boolean
+      path?: string
+      content?: string
+    }>
 }
 
 /**

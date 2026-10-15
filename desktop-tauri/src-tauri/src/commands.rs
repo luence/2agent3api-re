@@ -509,6 +509,39 @@ pub async fn pick_folder(app: AppHandle, default_dir: Option<String>) -> Result<
     Ok(json!({ "canceled": false, "path": path.to_string_lossy() }))
 }
 
+/// 弹系统文件选择框，选择提示词文件并直接读取其 UTF-8 文本内容
+#[tauri::command]
+pub async fn pick_prompt_file(app: AppHandle, default_path: Option<String>) -> Result<Value, String> {
+    let mut builder = tauri_plugin_dialog::DialogExt::dialog(&app)
+        .file()
+        .set_title("选择提示词文件")
+        .add_filter("文本文件", &["txt", "md", "json", "yaml", "yml", "prompt"])
+        .add_filter("全部文件", &["*"]);
+    if let Some(path_str) = default_path.filter(|text| !text.trim().is_empty()) {
+        let path = std::path::PathBuf::from(path_str);
+        if path.is_file() {
+            if let Some(parent) = path.parent() {
+                builder = builder.set_directory(parent);
+            }
+        } else if path.is_dir() {
+            builder = builder.set_directory(path);
+        }
+    }
+    let Some(file) = builder.blocking_pick_file() else {
+        return Ok(json!({ "canceled": true }));
+    };
+    let path = file
+        .into_path()
+        .map_err(|error| format!("文件路径无效: {error}"))?;
+    let content = std::fs::read_to_string(&path)
+        .map_err(|error| format!("读取提示词文件失败 (请确保为 UTF-8 文本): {error}"))?;
+    Ok(json!({
+        "canceled": false,
+        "path": path.to_string_lossy(),
+        "content": content
+    }))
+}
+
 /// 读取应用设置。
 ///
 /// `autostart` 以系统注册表的实际状态为准，而不是设置文件里的值：

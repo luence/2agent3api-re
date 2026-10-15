@@ -36,10 +36,12 @@ import {
   ZOOM_PERCENTS,
   formatBytes,
   formatCount,
+  errorMessage,
   openExternal,
   readThemeMode,
   readZoomPercent,
   shared,
+  toast,
   type GatewayBlocks,
   type NumberField,
   type ThemeMode,
@@ -53,6 +55,8 @@ import {
   dropLastRetryCode,
   exportAccounts,
   importAccounts,
+  importPromptFile,
+  importProviderPromptFile,
   load,
   panelLogout,
   refreshDebug,
@@ -639,7 +643,7 @@ function RetryCodesField({ codes, status, busy }: {
   )
 }
 
-/** 系统提示词：文件路径输入框（草稿机制与数字框同款，失焦 / 回车才提交） */
+/** 系统提示词：文件路径输入框（草稿机制与数字框同款，失焦 / 回车才提交） + 导入文件按钮 */
 function PromptFileRow({ prompt, locked, busy }: {
   prompt: PromptState
   locked: boolean
@@ -651,6 +655,27 @@ function PromptFileRow({ prompt, locked, busy }: {
     const raw = draft
     if (raw === null) return
     try { await savePromptFile(raw) } finally { setDraft(null) }
+  }
+
+  async function handlePickFile(): Promise<void> {
+    const bridge = shared().workbuddyDesktop
+    if (typeof bridge?.pickPromptFile !== 'function') {
+      toast(t('当前环境不支持选择文件，直接填写路径即可'), 'err')
+      return
+    }
+    try {
+      const picked = await bridge.pickPromptFile(draft !== null ? draft : (prompt.file || null))
+      if (picked?.unsupported) {
+        toast(t('当前环境不支持选择文件，直接填写路径即可'), 'err')
+        return
+      }
+      if (picked?.canceled || picked?.content === undefined) return
+      setDraft(picked.path || '')
+      await importPromptFile(picked.path || '', picked.content)
+      setDraft(null)
+    } catch (error) {
+      toast(t('导入提示词文件失败：{reason}', { reason: errorMessage(error) }), 'err')
+    }
   }
 
   return (
@@ -668,6 +693,14 @@ function PromptFileRow({ prompt, locked, busy }: {
           onBlur={() => void commit()}
           onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
         />
+        <Button
+          type='button'
+          variant='outline'
+          disabled={locked || busy}
+          onClick={() => void handlePickFile()}
+        >
+          {t('导入文件…')}
+        </Button>
       </span>
       <div className='hint'>{NOTES.promptFile}</div>
     </div>
@@ -708,7 +741,7 @@ function degradeHint(prompt: PromptState): string {
 }
 
 /**
- * 提示词文件输入框（草稿机制与上面那个全局的同款，按 id 提交到对应那一家）
+ * 提示词文件输入框（草稿机制与上面那个全局的同款，按 id 提交到对应那一家） + 导入文件按钮
  */
 function ProviderFileRow({ item, label, locked, busy }: {
   item: ProviderPromptState
@@ -728,6 +761,27 @@ function ProviderFileRow({ item, label, locked, busy }: {
     } finally { setDraft(null) }
   }
 
+  async function handlePickFile(): Promise<void> {
+    const bridge = shared().workbuddyDesktop
+    if (typeof bridge?.pickPromptFile !== 'function') {
+      toast(t('当前环境不支持选择文件，直接填写路径即可'), 'err')
+      return
+    }
+    try {
+      const picked = await bridge.pickPromptFile(draft !== null ? draft : (item.file || null))
+      if (picked?.unsupported) {
+        toast(t('当前环境不支持选择文件，直接填写路径即可'), 'err')
+        return
+      }
+      if (picked?.canceled || picked?.content === undefined) return
+      setDraft(picked.path || '')
+      await importProviderPromptFile(item, picked.path || '', picked.content)
+      setDraft(null)
+    } catch (error) {
+      toast(t('导入提示词文件失败：{reason}', { reason: errorMessage(error) }), 'err')
+    }
+  }
+
   return (
     <span className='prompt-input'>
       <Input
@@ -742,6 +796,14 @@ function ProviderFileRow({ item, label, locked, busy }: {
         onBlur={() => void commit()}
         onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
       />
+      <Button
+        type='button'
+        variant='outline'
+        disabled={locked || busy}
+        onClick={() => void handlePickFile()}
+      >
+        {t('导入…')}
+      </Button>
     </span>
   )
 }

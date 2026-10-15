@@ -434,6 +434,9 @@ const BRIDGE_JS: &str = r#"
     removeKernel: () => call('POST', '/api/subscriptions/kernel/remove', {}),
     // 桌面壳的文件夹选择框：参数名与命令签名一致（camelCase ← Rust 的 snake_case）
     pickFolder: defaultDir => invoke('pick_folder', { defaultDir: defaultDir == null ? null : String(defaultDir) }),
+    // 桌面壳的提示词文件选择框：选择文本文件并直接读取其 UTF-8 文本内容
+    pickPromptFile: defaultPath =>
+      invoke('pick_prompt_file', { defaultPath: defaultPath == null ? null : String(defaultPath) }),
 
     // ── 积分 / 签到 ──
     getUsage: () => call('GET', '/api/usage'),
