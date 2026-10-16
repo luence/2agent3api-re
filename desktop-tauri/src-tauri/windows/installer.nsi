@@ -662,6 +662,14 @@ Section Install
   ; Clean up older version uninstall keys if this is an overwrite update
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v1"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v1"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v2"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v2"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v3"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v3"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v4"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v4"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v5"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Agent2API v5"
 
   !if "${INSTALLMODE}" == "both"
     ; Save install mode to be selected by default for the next installation such as updating
@@ -885,7 +893,49 @@ Function RestorePreviousInstallLocation
     Return
   ${EndIf}
 
-  ; 3. Check v2/v1 key: Software\aimod-cc\Agent2API v2 / v1
+  ; 3. Check v5/v4/v3/v2/v1 key: Software\aimod-cc\Agent2API v5 .. v1
+  ReadRegStr $4 HKLM "Software\${MANUFACTURER}\Agent2API v5" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
+  ReadRegStr $4 HKCU "Software\${MANUFACTURER}\Agent2API v5" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
+  ReadRegStr $4 HKLM "Software\${MANUFACTURER}\Agent2API v4" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
+  ReadRegStr $4 HKCU "Software\${MANUFACTURER}\Agent2API v4" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
+  ReadRegStr $4 HKLM "Software\${MANUFACTURER}\Agent2API v3" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
+  ReadRegStr $4 HKCU "Software\${MANUFACTURER}\Agent2API v3" ""
+  ${If} $4 != ""
+  ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"
+    StrCpy $INSTDIR $4
+    Return
+  ${EndIf}
+
   ReadRegStr $4 HKLM "Software\${MANUFACTURER}\Agent2API v2" ""
   ${If} $4 != ""
   ${AndIf} ${FileExists} "$4\workbuddy-proxy-desktop.exe"

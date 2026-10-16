@@ -60,8 +60,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v5' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Agent2API v5 自动构建版' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v6' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Agent2API v6 自动构建版' }}
           draft: false
           prerelease: false
           make_latest: true
@@ -71,33 +71,43 @@ jobs:
             target/release/agent2api.exe
             target/release/workbuddy-proxy-desktop.exe
           body: |
-            ## 🚀 Agent2API v5 自动构建发布
+            ## 🚀 Agent2API v6 自动构建发布
 
             ### 🌟 本次核心更新
-            - **同步上游 3.0.7 核心特性**：
-              - 修复：国际版对话请求按官方 5.8.4 客户端对齐身份与会话头族，通过上游新增渠道校验（11-128 拦截不再出现）；
-              - 修复：OrcaTerm 选中上游未挂载模型（如 Hy4-preview）时明确报错，不再静默回落或返回空白回答；
-              - 更新：OrcaTerm 模型清单对齐桌面端面板，新增 Hy4-preview、Hy3、DeepSeek-V4.1-Flash；
-              - 更新：AutoClaw 签到的「活动福利已到账」确认现在涵盖新手期 7 天登录奖励；
-              - 更新：手动关闭订阅内核后，测试 / 保存账号引用 / 订阅同步不再悄悄拉起内核，改为提示先点「启动内核」；
-              - 更新：添加账号弹窗的「自定义」段不再重复显示预置模板建的家，加账号入口统一到预置卡片；
-              - 增加：支持直接读取并导入本机官方桌面客户端（Windows/macOS）登录态。
+            - **同步上游 3.0.8 核心特性**：
+              - 新增：账号支持导入凭证文件（小浣熊 / CatPaw 的 `auth.json`、Cline 的 `providers.json`）；
+              - 新增：KukuAI 支持导入 Cookies 文件（二进制 SQLite，读副本，无需先关客户端）；
+              - 新增：「开发者角色兼容」开关（设置页，默认开）—— `developer` 角色转发前改写为 `system`；
+              - 新增：Cline Pass 预置供应商卡（随卡预置上游要求的 Cline 客户端请求头）；
+              - 新增：「加入 beta 版」开关 —— 打开后更新检查包含预发布版，取版本最高的一版；
+              - 新增：OrcaTerm 改为在官方 Web 控制台扫码登录；
+              - 新增：CodeArts 授权页可选「内嵌窗口」或「系统浏览器」打开；
+              - 新增：ZCode 推理请求跟随上游下发的端点映射改写地址；
+              - 新增：「新增订阅」新增「家庭宽带」档（新增代理弹窗同一处）；
+              - 新增：仓库页面新增支持入口（微信赞赏码、QQ 群号）；
+              - 新增：恢复 AI 助手入口与对话页；
+              - 优化：补齐设置页（AI 助手 / 路由）、账号页、更新面板、数据保留面板的译文；
+              - 优化：报表读取改串列，同一份数据实测 273 ms → 98 ms；
+              - 优化：代理池断路器改双向对称，引用增删时自动补建 / 回收端口；
+              - 修复：Antigravity 多轮工具调用因缺少思考签名被上游拒绝；
+              - 修复：国际版每日活跃在「活动未开启但活跃已点亮」时不再记成失败；
+              - 修复：企业版账号跳过注定 400 的活动补偿请求。
             - **长度截断自动续写与伪换行过滤 GUI**：
-              - 设置页新增「长度截断自动续写」开关与上限轮数配置，并内置详尽优缺点对比卡片；
-              - 设置页新增「丢弃保活换行心跳分片」开关，彻底解决 WorkBuddy / AutoClaw 流式输出换行碎片导致的排版崩溃；
+              - 设置页提供「长度截断自动续写」开关与上限轮数配置，并内置详尽优缺点对比卡片；
+              - 设置页提供「丢弃保活换行心跳分片」开关，彻底解决 WorkBuddy / AutoClaw 流式输出换行碎片导致的排版崩溃；
               - 接入多语言国际化翻译管道。
             - **提示词文件导入与正文联动系统**：
               - 设置页「提示词文件」与各提供商配置行提供「导入文件…」/「导入…」按钮；
               - 选定后自动记录文件绝对路径，并直接将文件 UTF-8 文本内容写入生效的「提示词正文」。
-            - **新增支持 CodeBuddy (国内版)**：
+            - **深度集成 CodeBuddy (国内版)**：
               - 完整适配腾讯 CodeBuddy 官方网页一键扫码/短信登录态获取；
               - 支持手动填写 `accessToken`，内置 JWT 自动解码与用户身份自动提取。
             - **安装程序智能原地就地覆盖更新**：
               - NSIS 安装包自动扫描本机注册表与既有路径，自动识别已安装目录；
               - 安装目录自动预填已有路径，一步直接覆盖更新老版本文件。
             - **软件标题与版本递增标识**：
-              - 软件标题（`Agent2API v5 · 多提供商本地网关`）、任务栏图标、侧边栏 Logo 旁均显式展示 `v5` 标记。
+              - 软件标题（`Agent2API v6 · 多提供商本地网关`）、任务栏图标、侧边栏 Logo 旁均显式展示 `v6` 标记。
 
             ### 📦 文件清单
-            - `Agent2API v5_*.exe`：Windows 64位 NSIS 安装包（推荐，自动识别并原地覆盖）
+            - `Agent2API v6_*.exe`：Windows 64位 NSIS 安装包（推荐，自动识别并原地覆盖）
             - `agent2api.exe`：免安装绿色版可执行程序
