@@ -82,3 +82,13 @@ cd .. && npm run build
 ## 3. 敏感数据与隐私零容忍原则
 - 仓库代码内绝对严禁硬编码任何真实 API Key、Secret、个人 Token、密码或真实内网地址。
 - 向 GitHub 推送前必须执行全量敏感数据排查。
+
+---
+
+## 4. 强制自动发布 GitHub Releases 铁律 (Mandatory Auto-Release Push)
+- **编译完成必推 Release**：每次版本升级、合并新特性或本地/云端编译完成后，**必须确保产物自动推送到 GitHub Releases**，绝对严禁编译完成后仅留在本地、未挂载至 Releases 页面。
+- **发布规范与闭环要求**：
+  1. 打对应版本 Tag（如 `v4`、`v5` 等）并推送到远端仓库（`git tag vX && git push origin vX`）。
+  2. 确保 GitHub Actions（`.github/workflows/build.yml`）及自动化发布通道能可靠创建/更新对应版本的 GitHub Release。
+  3. Release 资产必须包含完整的 Windows 安装包（NSIS Setup）、免安装绿色版可执行文件（`agent2api.exe`）及全平台安装产物，并标记为 `make_latest: true`。
+  4. 每次交付前，必须核验 GitHub Releases 页面已有对应版本（如 `v4`）的正式发布项与可下载文件。

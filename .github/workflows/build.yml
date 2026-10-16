@@ -118,10 +118,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2-latest' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Agent2API v2 自动构建版' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v4' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Agent2API v4 自动构建版' }}
           draft: false
           prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: false
           files: target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
   # ── Windows ─────────────────────────────────────────────────
@@ -163,46 +165,50 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3-latest' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Agent2API v3 自动构建版' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v4' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Agent2API v4 自动构建版' }}
           draft: false
           prerelease: false
           make_latest: true
+          fail_on_unmatched_files: false
           files: |
             target/release/bundle/nsis/*.exe
+            target/release/agent2api.exe
             target/release/workbuddy-proxy-desktop.exe
           body: |
-            ## 🚀 Agent2API v3 自动构建发布
+            ## 🚀 Agent2API v4 自动构建发布
 
             ### 🌟 本次核心更新
+            - **同步上游 3.0.6 核心特性**：
+              - 7 种方案自定义提供商余额查询（Sub2API / NewAPI / DeepSeek / OpenCode / 商汤日日新 / 智谱 / 智谱 ZAI）；
+              - 预置卡片新增 Sub2API、NewAPI、商汤日日新，OpenCode Go 接入余额查询；
+              - Antigravity 新增 5 小时/每周窗口余额读数；
+              - 出网新增「轮询」档，逐请求轮换出口，429 时原地换出口；
+              - 订阅管理支持导入本地 YAML 文件；
+              - 余额格「积分明细」扩展到小浣熊、AutoClaw、Qoder、ZCode、Loomy、OfficeAce 等；
+              - 代理池镜像条目支持本地禁用，即时关闭本地监听端口；
+              - 找回误删的「路由」分类与「整库备份/恢复」「验证码令牌池」「models.dev 模型元数据」面板；
+              - 修复 404 确定性失败不再原地重发（#255）、CodeArts 积分显示翻倍（#261）、Trae 中国版有效期读取（#263）。
+            - **长度截断自动续写与伪换行过滤 GUI**：
+              - 设置页新增「长度截断自动续写」开关与上限轮数配置，并内置详尽优缺点对比卡片；
+              - 设置页新增「丢弃保活换行心跳分片」开关，彻底解决 WorkBuddy / AutoClaw 流式输出换行碎片导致的排版崩溃；
+              - 接入多语言国际化翻译管道。
             - **提示词文件导入与正文联动系统**：
-              - 设置页「提示词文件」与各提供商配置行新增「导入文件…」/「导入…」按钮；
-              - 支持原生文件选择器浏览 `.txt`、`.md`、`.json`、`.yaml`、`.prompt` 等提示词文件；
-              - 选定后自动记录文件绝对路径，并直接将文件 UTF-8 文本内容写入生效的「提示词正文」，效果等同于直接在编辑正文中保存。
-            - **同步原作者最新特性 (3.0.4 & 3.0.5)**：
-              - 优化 Windows 桌面端内核启动与解压时不再弹出控制台黑框；
-              - 优化 Windows 下获取系统时区、版本信息及结束进程时静默执行；
-              - OpenCode Go 订阅端点自动补上游要求的会话头与客户端标识；
-              - 网络代理页新增内核下载弹窗与代理设置弹窗（端口范围可调、测试网址可自定义）；
-              - 账号凭证与网关 Key 引入加密落库；
-              - 模型测试支持选择网关对话协议，移动端自适应与 iOS PWA 支持；
-              - 长度截断自动续写、请求日志全量保留与客户端标识显示。
+              - 设置页「提示词文件」与各提供商配置行提供「导入文件…」/「导入…」按钮；
+              - 选定后自动记录文件绝对路径，并直接将文件 UTF-8 文本内容写入生效的「提示词正文」。
             - **新增支持 CodeBuddy (国内版)**：
               - 完整适配腾讯 CodeBuddy 官方网页一键扫码/短信登录态获取；
               - 支持手动填写 `accessToken`，内置 JWT 自动解码与用户身份自动提取。
-            - **安装程序智能原地覆盖更新**：
-              - NSIS 安装包自动扫描本机注册表与既有路径，自动识别已安装的目录（如 `F:\Program Files\Agent2API` 等）；
-              - 安装目录自动预填已有路径，一步直接覆盖更新老版本文件，无需再手动寻找目录或重复安装。
+            - **安装程序智能原地就地覆盖更新**：
+              - NSIS 安装包自动扫描本机注册表与既有路径，自动识别已安装目录；
+              - 安装目录自动预填已有路径，一步直接覆盖更新老版本文件。
             - **软件标题与版本递增标识**：
-              - 软件标题、任务栏图标、侧边栏 Logo 旁均显式展示版本标记（如 `v3`），直观区分新旧版本。
-            - **杀软防误报启发式调优**：
-              - 调优 Release 编译策略，保留完整 PE 导出段与标准调试符号，避免被 ESET、Windows Defender 等安全杀软启发式误判。
-            - **历史图片自动剥离（Image Strip）**：
-              - 当会话历史轮次中含有图片，而当前模型/上游不吃图时，自动剥离历史旧图并保留上下文占位，防止高优先级节点被错误剔除。
+              - 软件标题（`Agent2API v4 · 多提供商本地网关`）、任务栏图标、侧边栏 Logo 旁均显式展示 `v4` 标记。
 
             ### 📦 文件清单
-            - `Agent2API v3_*.exe`：Windows 64位 NSIS 安装包（推荐，自动识别并原地覆盖）
-            - `workbuddy-proxy-desktop.exe`：免安装绿色版可执行程序
+            - `Agent2API v4_*.exe`：Windows 64位 NSIS 安装包（推荐，自动识别并原地覆盖）
+            - `agent2api.exe`：免安装绿色版可执行程序
+            - `*.dmg`：macOS Universal 镜像安装包
 
   # ── Linux 服务端包（容器内一键更新的 Release 资产）──────────
   # 面板在容器里「一键更新」时下载的就是这里的产物：包内是可执行文件 +
