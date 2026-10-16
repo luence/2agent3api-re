@@ -34,3 +34,7 @@ dist/
 # Docker 部署：密钥与运行数据不入库
 .env
 data/
+
+# 本地 AI 代理维护规则与发布规范（仅本地留存，不推送到公开仓库）
+/agent.md
+/AGENTS.md
