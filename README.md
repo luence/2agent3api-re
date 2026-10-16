@@ -1,8 +1,38 @@
-# Agent2API · 多提供商本地网关
+<div align="center">
 
-**简体中文** | [English](./README.en.md) | [繁體中文](./README.zh-Hant.md) | [日本語](./README.ja.md) | [한국어](./README.ko.md) | [Português (BR)](./README.pt-BR.md)
+# Agent2API
 
-把多家 AI 桌面客户端的登录态变成一个本地 **OpenAI 兼容 API 网关**：统一暴露一个 `base_url`，带多账号管理、模型管理、出网代理与请求报表，并附一个开箱即用的 Tauri 桌面端。任何支持自定义 `base_url` 的 OpenAI 客户端都能以 `http://127.0.0.1:3065/v1` 调用这几家的模型额度 —— 不需要上游 API Key，不需要改客户端。
+**把多家 AI 桌面客户端的登录态，变成一个本地 OpenAI 兼容 API 网关**
+
+[简体中文](./README.md) | [English](./README.en.md) | [繁體中文](./README.zh-Hant.md) | [日本語](./README.ja.md) | [한국어](./README.ko.md) | [Português (BR)](./README.pt-BR.md)
+
+[![license](https://img.shields.io/badge/license-MIT%20%2B%20附加声明-green)](./LICENSE)
+[![release](https://img.shields.io/github/v/release/aimod-cc/agent2api?include_prereleases)](https://github.com/aimod-cc/agent2api/releases/latest)
+[![docker pulls](https://img.shields.io/docker/pulls/aimodcc/agent2api)](https://hub.docker.com/r/aimodcc/agent2api)
+[![stars](https://img.shields.io/github/stars/aimod-cc/agent2api?style=flat&color=yellow)](https://github.com/aimod-cc/agent2api/stargazers)
+[![platform](https://img.shields.io/badge/platform-Windows%20%7C%20Docker-blue)](https://github.com/aimod-cc/agent2api/releases/latest)
+
+[✨ 核心特性](#-核心特性) • [🤝 支持的提供商](#-支持的提供商) • [🚀 快速开始](#-快速开始) • [🐳 Docker 部署](#-docker-部署) • [📸 界面预览](#-界面预览) • [🔧 开发与构建](#-开发与构建) • [📜 使用声明](#-使用声明)
+
+</div>
+
+---
+
+统一暴露一个 `base_url`，带多账号管理、模型管理、出网代理与请求报表，并附一个开箱即用的 Tauri 桌面端。任何支持自定义 `base_url` 的 OpenAI 客户端都能以 `http://127.0.0.1:3065/v1` 调用这几家的模型额度 —— **不需要上游 API Key，不需要改客户端**。
+
+## ✨ 核心特性
+
+- 🔌 **OpenAI 兼容端点** —— 统一暴露 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`（含 `count_tokens`）与 `/v1/models`，客户端即插即用
+- 🏪 **17 家内置提供商** —— WorkBuddy、小浣熊、CatPaw、AutoClaw、Qoder、Cline、Accio、ZCode、CodeArts、Trae、Loomy、KukuAI、MonkeyCode、Command Code、Antigravity、OfficeAce（部分分国内 / 国际两版），另支持自定义提供商透传（Chat / Responses / Anthropic）
+- 🔁 **凭证全自动维护** —— Token 自动续期（单飞去重）、临期凭证批量刷新、模型目录远程刷新 + 静态兜底
+- 🪂 **稳定转发** —— 全局优先级账号队列、按模型限额冷却、429 自动降级、确定性失败快速跳过不空等
+- 🛡️ **安全与脱敏** —— 出网代理、出站指纹脱敏、多把网关 Key、fail-closed、登录人机验证
+- 📊 **请求报表** —— 请求数 / 成功率 / Token 总量、24 小时缓存命中率与消耗趋势、Top 模型与账号、365 天活跃热力图
+- ⏰ **定时任务** —— 自动签到、凭证维护、模型目录刷新等后台任务，开关 / 间隔 / 上次结果一页管理
+- 💰 **余额看得见** —— 账号行内余额 / 用量展示，跨账号并发查询与定时快照
+- 🖥️ **两种部署形态** —— Tauri 桌面端（托盘常驻，免 Node 运行时）/ Docker headless（面板 + 网关同端口），面板界面六语
+
+## 🤝 支持的提供商
 
 支持情况一览（✓ 支持 · ✗ 不支持 · — 无此概念）：
 
@@ -30,31 +60,26 @@
 
 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`（含 `count_tokens`）与 `/v1/models` 对所有平台一视同仁；模型映射、全局优先级队列、429 降级、出网代理、出站指纹脱敏与请求报表同样全平台通用。
 
-> **本项目仅供学习与交流使用。** 它以非官方客户端形态复用你自己账号的登录态，可能不符合上游服务的使用条款，风险（含账号被风控、封禁）自负；禁止商用或绕过计费。详见[使用声明](#使用声明)与 [LICENSE](./LICENSE)。
+> **本项目仅供学习与交流使用。** 它以非官方客户端形态复用你自己账号的登录态，可能不符合上游服务的使用条款，风险（含账号被风控、封禁）自负；禁止商用或绕过计费。详见[使用声明](#-使用声明)与 [LICENSE](./LICENSE)。
 >
-> 本项目与各上游厂商及其官方产品均无关（名单见[使用声明](#使用声明)）；接口形态来自对各家客户端通信的观察，上游随时可能调整。
+> 本项目与各上游厂商及其官方产品均无关（名单见[使用声明](#-使用声明)）；接口形态来自对各家客户端通信的观察，上游随时可能调整。
 
----
+## 🚀 快速开始
 
-## 📢 最新更新与版本说明 (v3)
+## 📢 最新更新与版本说明 (v5)
 
-### 🌟 核心更新亮点 (v3)
-1. **提示词文件导入与正文联动系统**：
-   - 在系统提示词设置的「提示词文件」旁新增「导入文件…」按钮（各提供商单独配置行亦新增「导入…」）。
-   - 点击弹出原生系统文件选择器，支持选择 `.txt`、`.md`、`.json`、`.yaml`、`.prompt` 等提示词文件。
-   - 选择后不仅自动记录文件绝对路径，且直接读取文件 UTF-8 文本并存为生效的「提示词正文」，效果等同于在「编辑正文」中输入保存，无缝接管并直观展示行数。
-2. **完整同步上游 3.0.5 / 3.0.4 官方架构更新**：
-   - **Windows 静默运行**：内核启动、解压与时区检测全链路去除 CMD 弹窗黑框。
-   - **OpenCode Go**：自动化 Session 请求头与 Client Token 生成。
-   - **出网代理管理升级**：新增内核下载管理、代理节点懒加载、可配置端口范围与自定义连通性探测地址。
-   - **数据安全加固**：网关 API Key 与账号机密数据全面升级为 AES-GCM 强加密存储。
-   - **模型与移动端**：模型管理支持协议选择器，前端 UI 全面适配移动端。
-3. **安装程序智能就地覆盖更新**：
-   - 解决版本更迭（`v1`、`v2`、`v3`）导致的目录混乱与重复安装问题。
-   - Windows 安装包（NSIS）自动扫描本机注册表与各驱动器既有安装路径并预填，直接原地覆盖升级。
-4. **软件版本显式递增标注 (`v3`)**：
-   - 软件标题栏（`Agent2API v3 · 多提供商本地网关`）、任务栏、左侧边栏 Logo 均显式展示 `v3` 标识。
-5. **国内专属 CodeBuddy 与图片安全清洗机制保留**：
+### 🌟 核心更新亮点 (v5 / 上游 3.0.7)
+1. **完整同步上游 3.0.7 官方更新**：
+   - **WorkBuddy 国际版**：对话请求按官方 5.8.4 客户端对齐身份与会话头族，通过上游新增渠道校验，解决 11-128 拦截报错。
+   - **OrcaTerm 全面增强**：模型清单对齐桌面端面板（新增 Hy4-preview、Hy3、DeepSeek-V4.1-Flash）；选中上游未挂载模型时明确报错。
+   - **AutoClaw 签到优化**：「活动福利已到账」确认机制现已涵盖新手期 7 天登录奖励。
+   - **订阅内核管理规范**：手动关闭订阅内核后，测试/保存账号引用/订阅同步不再悄悄拉起内核，改为友好提示先点击「启动内核」。
+   - **账号添加交互简化**：添加账号弹窗的「自定义」段不再重复显示预置模板，加账号入口统一到预置卡片；支持直接导入本机官方桌面端登录态。
+2. **提示词文件导入与正文联动系统**：
+   - 在系统提示词设置与各提供商配置旁提供「导入文件…」按钮，原生文件选择器一键导入 UTF-8 文本并存为生效正文。
+3. **就地覆盖更新与递增标题 (v5)**：
+   - NSIS 安装包自动识别本机已有安装路径并默认原地覆盖升级；软件标题、任务栏、边栏全面升级至 `v5` 标识。
+4. **国内专属 CodeBuddy 与图片安全清洗机制保留**：
    - 完整保留 CodeBuddy 官方国内渠道、短信/扫码登录与配额查询。
    - 保留 Vision Gate 历史长会话图片自动剥离与清洗管道。
 
@@ -62,7 +87,7 @@
 
 ## 目录
 
-- [最新更新与版本说明 (v3)](#最新更新与版本说明-v3)
+- [最新更新与版本说明 (v5)](#最新更新与版本说明-v5)
 - [快速开始与使用指南](#快速开始与使用指南)
 - [Docker 部署](#docker-部署)
 - [界面预览](#界面预览)
@@ -77,10 +102,11 @@
 
 ### 1. 下载与安装
 
-从 Releases 下载安装包（如 `Agent2API v3_*.exe`，简体中文安装向导）。
+从 Releases 下载安装包（如 `Agent2API v5_*.exe`，简体中文安装向导）。
 - **覆盖安装**：运行安装程序时，向导会自动识别本机已安装的位置（无需手动改选），直接点击下一步即可原地覆盖升级。
-- **免安装运行**：亦可直接下载 `workbuddy-proxy-desktop.exe` 免安装版直接运行。
+- **免安装运行**：亦可直接下载 `agent2api.exe` 免安装版直接运行。
 - **运行环境**：**无需安装 Node 或任何外部运行时**，启动即用。
+
 
 ### 2. 添加提供商账号
 
@@ -130,9 +156,7 @@ print(resp.choices[0].message.content)
 
 默认只监听 `127.0.0.1`。开启「设置 → 通用 → 局域网访问」后改听所有网卡，局域网设备把 API 地址指向本机 IP 即可共用（界面会给出完整地址）。出于安全，开启前必须注册面板管理员：管理接口要求管理员会话或网关 Key，无可用 Key 时转发接口同样拒绝服务（开启流程会自动补一把「默认」Key）；也可选择同时开放网页面板（默认关闭）。改动重启生效。
 
----
-
-## Docker 部署
+## 🐳 Docker 部署
 
 ```bash
 docker run -d --name agent2api --restart unless-stopped \
@@ -170,7 +194,8 @@ services:
 
 从源码构建：克隆本仓库后 `docker compose up -d --build`（镜像里只有网关与面板，不含 Rust 工具链）。
 
-### 升级
+<details>
+<summary><b>升级与回滚</b>（点开）</summary>
 
 **面板里直接升**：设置 → 软件更新 → 检查更新，发现新版本后点「下载并更新」，包下完再点「安装并重启」。服务端会校验 sha256，替换容器内的可执行文件与界面文件，然后重启进程 —— 容器由 `restart: unless-stopped` 拉起（同一个容器，数据卷不动），页面几秒后自动刷新。想退回上一版，面板上有「回滚到上一版本」（用的是更新时留下的备份）。
 
@@ -194,11 +219,11 @@ docker rm -f agent2api
 
 从源码构建的：`git pull && docker compose up -d --build`。
 
+</details>
+
 **网页端功能差异**（源于「没有本机桌面客户端」）：网页登录（WorkBuddy / Qoder / Cline）、手机验证码、粘贴凭证完全可用；需要本机回调的网页登录（AutoClaw / CatPaw / Accio / CodeArts / Trae）与「导入本机登录态」不可用，请改用粘贴凭证。
 
----
-
-## 界面预览
+## 📸 界面预览
 
 ### 账号
 
@@ -226,9 +251,7 @@ docker rm -f agent2api
 
 ![定时任务页：自动签到、凭证维护、模型目录刷新等后台任务的开关与间隔](./assets/screenshots/scheduled-tasks.png)
 
----
-
-## 项目结构
+## 🧱 项目结构
 
 后端是 `src-tauri/` 下的 Rust 进程内 HTTP 服务器，前端是 `ui/` 下的原生 HTML/CSS/JS。
 
@@ -321,9 +344,9 @@ agent2api/
 │  │  │  │  │  │                fingerprint（确定性设备指纹与 8h 上报）/ models /
 │  │  │  │  │  │                plan（8 键信封与 params 重写、session id 派生）
 │  │  │  │  │  ├─ antigravity/  Antigravity（Google，Gemini）：oauth（refresh token 续期 + 单飞）/
-│  │  │  │  │                   project（loadCodeAssist → onboardUser 发现）/ credentials /
-│  │  │  │  │                   endpoints（三环境基址与头集合）/ login /
-│  │  │  │  │                   models（fetchAvailableModels + 内置兜底 + 上游真名映射）/ adapter
+│  │  │  │  │  │                project（loadCodeAssist → onboardUser 发现）/ credentials /
+│  │  │  │  │  │                endpoints（三环境基址与头集合）/ login /
+│  │  │  │  │  │                models（fetchAvailableModels + 内置兜底 + 上游真名映射）/ adapter
 │  │  │  │  │  └─ officeace/    OfficeAce（华为云果办 / OfficeClaw）：oauth（PKCE + P-256 DPoP 自助登录）/
 │  │  │  │  │                   signer（SDK-HMAC 与 V11-HMAC 两套签名 + 向量夹具）/ credentials（网关 Basic 与控制面临时 AK/SK 两层）/
 │  │  │  │  │                   chat（无状态 OpenAI 兼容转发）/ models（远程目录 + 每模型倍率）/
@@ -376,9 +399,7 @@ agent2api/
 
 </details>
 
----
-
-## 开发与构建
+## 🔧 开发与构建
 
 ### 环境要求
 
@@ -397,9 +418,7 @@ npm run build:icon         # 生成图标源图（改图标设计后执行，再
 
 打包产物为 `target/release/bundle/nsis/Agent2API_<版本>_x64-setup.exe`（当前约 3.0 MB；`src-tauri/.cargo/config.toml` 把 cargo 的 `target-dir` 指到了项目根的 `target/`）。
 
----
-
-## 使用声明
+## 📜 使用声明
 
 ### 仅供学习与交流
 
@@ -421,17 +440,13 @@ npm run build:icon         # 生成图标源图（改图标设计后执行，再
 
 本项目按「现状」提供，作者不对其可用性、稳定性、安全性或对特定用途的适用性作任何承诺。上游接口随时可能变更，本项目可能随时失效而不再维护。完整条款见 [LICENSE](./LICENSE)。本项目中的接口形态、协议字段等信息来自对各官方客户端公开网络通信的观察与整理，相关商标与服务的权利归其各自所有者；若权利方认为本项目存在不当之处，请联系作者，将及时调整或删除。
 
----
-
-## 许可
+## 📄 许可
 
 本项目基于 [MIT License](./LICENSE)，可自由使用、修改与分发，须保留版权声明。
 
 需要留意的是：LICENSE 正文之后附有一份**使用声明**，其中第 3 条在 MIT 之上**追加了限制**（禁止商业用途、禁止二次分发牟利、禁止批量账号运营）。因此本项目**不是**纯粹的 MIT 项目——**MIT 条款与使用声明共同构成完整的授权与使用约定**，两者对同一行为给出不同结论时以更严格的一方为准。这也是 `Cargo.toml` 用 `license-file` 指向 LICENSE、而不声明 SPDX `"MIT"` 的原因。
 
----
-
-## Star History
+## ⭐ Star History
 
 <a href="https://star-history.com/#aimod-cc/agent2api&Date">
   <picture>
@@ -440,3 +455,11 @@ npm run build:icon         # 生成图标源图（改图标设计后执行，再
     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=aimod-cc/agent2api&type=Date" />
   </picture>
 </a>
+
+<div align="center">
+
+**[下载最新版](https://github.com/aimod-cc/agent2api/releases/latest)** • **[问题反馈](https://github.com/aimod-cc/agent2api/issues)**
+
+如果这个项目对你有帮助，欢迎点一个 ⭐️ Star！
+
+</div>
