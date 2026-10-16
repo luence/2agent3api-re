@@ -7,7 +7,7 @@
 //!      再由客户端调 `exchangeToken(session_id)` 换令牌。**回调只认自定义协议**，
 //!      而 WebView2 的登录窗口没有 Electron 那种协议接管能力（见
 //!      `desktop-tauri/src/login.rs` 模块头），所以这条在壳里收不到；
-//!   2. `open.weixin.qq.com/connect/qrconnect`（appid `wx56e5199ef872dc22`，
+//!   2. `open.weixin.qq.com/connect/qrconnect`（appid `wx_orcaterm_app_id`，
 //!      OrcaTerm 自己的开放平台应用）—— 服务端换码接口
 //!      `POST /oauth/wechat/exchange {code, state}` 的 state 由上游
 //!      `/oauth/wechat/config` 现发、绑定服务端会话，网关**代跑没有把握**
