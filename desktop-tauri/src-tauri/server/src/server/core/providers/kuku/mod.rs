@@ -29,7 +29,7 @@
 //!
 //! ── 余额 ──────────────────────────────────────────────────
 //! `GET /bizapi/gfpro/getgfvipremain` → `data.list[0].totalPoint`
-//! （zhengwuji-workbuddy 2026-10-01 实测；该接口**不认 `app_id`**，query 只带
+//! （桌面客户端 2026-10-01 实测；该接口**不认 `app_id`**，query 只带
 //! `channel/clienttype/version`，桌面客户端形态 `401/1.6.7`）。
 //!
 //! ── 签到 ──────────────────────────────────────────────────
@@ -72,7 +72,7 @@ pub const CHANNEL: &str = "chunlei";
 ///
 /// 为什么对话不用桌面客户端形态（`401/1.6.7`）：sendmsg / getchatcontent 的
 /// 实测记录来自 kuku2api（网页形态），桌面形态只有 freepoint 的实测
-/// （zhengwuji-workbuddy）。两组接口各认各的形态，照抄各自的实测值。
+/// （桌面客户端实测）。两组接口各认各的形态，照抄各自的实测值。
 /// 余额接口（`/bizapi/gfpro/getgfvipremain`）**不带任何参数**（客户端
 /// `http.get` 的 params 为空，见 `balance.rs` 模块头），这里没有它的常量。
 pub const WEB_QUERY: &str = "clienttype=400&app_id=123971023&web=1&channel=chunlei&version=1.4.4";

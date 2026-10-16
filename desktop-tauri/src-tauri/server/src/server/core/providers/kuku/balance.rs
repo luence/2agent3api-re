@@ -1,7 +1,7 @@
 //! KukuAI 余额查询：`GET /bizapi/gfpro/getgfvipremain` → `data.list[*].totalPoint`。
 //!
-//! ── 接口事实（2026-10-07 用真实凭证实测，与参考实现 `Acankao/zhengwuji-workbuddy`
-//!    的 `internal/upstream/kuku.go` 逐字段对读）────────────────
+//! ── 接口事实（2026-10-07 实测，与上游/参考实现
+//!    的 internal/upstream 模块逐字段对读）────────────────
 //!   - 路径在 `/bizapi/` 一级。query 按客户端形态带 `channel/clienttype/version`
 //!     （实测**不带 query 也能返回**，但客户端与 Go 参考都带，带上更稳）；
 //!   - 响应是**顶层包络**（不是初版误判的双层）：
@@ -42,7 +42,7 @@ pub(super) async fn query_usage(
 ) -> Result<Value, GatewayError> {
     let credentials = credentials::snapshot_for(store, account_id)?;
     // query 按客户端形态：channel/clienttype/version（bizapi 不认 app_id，
-    // 参考实现明确删掉它 —— 见 `Acankao/zhengwuji-workbuddy` 的 Points()）。
+    // 参考实现明确删掉它 —— 见参考实现的 Points()）。
     let query = format!("channel={CHANNEL}&clienttype=400&version=1.4.4");
     let url = format!("{BASE_URL}/bizapi/gfpro/getgfvipremain?{query}");
     let headers = request_headers(&credentials);

@@ -1,6 +1,6 @@
 //! KukuAI 凭证：解析 / 本机登录态读取 / 从账号记录取快照。
 //!
-//! ── 凭证形态（zhengwuji-workbuddy 实测，见 Acankao/）──────────
+//! ── 凭证形态（实测沉淀）──────────
 //! 服务端只需要三个 Cookie 就能认证：`BDUSS`、`STOKEN`、`gfprotpl=genflowpro`。
 //! 其中 `gfprotpl` 是恒定的（值就是 `genflowpro`），不在账号里存，拼 Cookie 头
 //! 时固定附加。`BDUSS` 必填；`STOKEN` 可空（部分接口只用 BDUSS，实测三件套中
@@ -165,7 +165,7 @@ fn parts_from_array(items: &[Value]) -> (String, String, Vec<(String, String)>) 
     (bduss, stoken, extras)
 }
 
-/// 从 payload 解析登录态，支持三种形态（与 zhengwuji-workbuddy 面板同口径）：
+/// 从 payload 解析登录态，支持三种形态（与客户端面板同口径）：
 ///   1. **字符串**：整段 Cookie 头（`BDUSS=…; STOKEN=…; …`）；
 ///   2. **数组**：Cookie 编辑器导出的 `[{name, value}, …]`（kuku2api 的
 ///      `kuku_cookies.json` 同形态）；

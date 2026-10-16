@@ -8,8 +8,7 @@ name: docker
 #   推 v* tag 时与 build.yml 同时触发 —— 一次打 tag，安装包与镜像一起出来
 #
 # ── 推到哪里：两个仓库各自独立 ────────────────────────────────
-#   · **GHCR（恒推，无需任何 secret）**：ghcr.io/<owner>/<repo>
-#     （本仓库 → ghcr.io/coulsontl/agent2api）。用 Actions 自带的
+#   · **GHCR（恒推，无需任何 secret）**：ghcr.io/<owner>/<repo>。用 Actions 自带的
 #     GITHUB_TOKEN 登录，只要顶层 permissions 里给了 packages: write。
 #     ⚠️ GHCR 的**新包默认私有**：首次推送后要到包的设置里手动改成 Public，
 #     否则别人 docker pull 会 401（这一步只能人工点，API 改不了默认值）。
