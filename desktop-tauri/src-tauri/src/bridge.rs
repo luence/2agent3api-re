@@ -666,6 +666,13 @@ const BRIDGE_JS: &str = r#"
     getCors: () => call('GET', '/api/cors'),
     saveCors: enabled => call('PUT', '/api/cors', { corsEnabled: enabled === true }),
 
+    // ── 机器人校验开关（登录 / 注册的 ALTCHA proof-of-work）──
+    // 与 web_shim.rs 的同名方法逐字同形（桌面壳走 Tauri IPC，网页端走同源 fetch，
+    // 两边接口名与签名必须一致 —— 漏一侧时桌面端设置页读取失败会直接将开关禁用）。
+    getCaptchaSetting: () => call('GET', '/api/captcha'),
+    saveCaptchaSetting: on =>
+      call('PUT', '/api/captcha', { captchaEnabled: on === true }),
+
     // ── models.dev 模型元数据（能力位与逐模型思考档位）──
     // 与 web_shim.rs 的同名方法逐字同形（桌面壳走 Tauri IPC，网页端走同源
     // fetch，两边接口名与签名必须一致 —— 漏一侧的症状见上面 getCors 那段）。
